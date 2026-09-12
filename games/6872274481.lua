@@ -37799,67 +37799,37 @@ run(function()
 	local QuickBuy
 	local buying = false
 
-	local function findOwnShop()
-		if not entitylib.isAlive then return nil end
-		local rootPos = entitylib.character.RootPart.Position
-		local teamName = lplr.Team and lplr.Team.Name
-		local best, bestDist, fallback, fallbackDist = nil, math.huge, nil, math.huge
-		for _, d in ipairs(workspace:GetDescendants()) do
-			if d:IsA('ProximityPrompt') and d.Name == 'BedwarsItemShop' then
-				local part = d.Parent
-				if part and part:IsA('BasePart') then
-					local dist = (part.Position - rootPos).Magnitude
-					if dist < fallbackDist then
-						fallback, fallbackDist = part, dist
-					end
-					if teamName and tostring(part:GetAttribute('TeamId')) == teamName and dist < bestDist then
-						best, bestDist = part, dist
-					end
-				end
-			end
-		end
-		return best or fallback
-	end
-
 	local function instantBuy(itemType)
 		if buying then return end
 		if not entitylib.isAlive then return end
 		buying = true
 		task.spawn(function()
 			local ok = pcall(function()
-				local char = entitylib.character
-				local root = char.RootPart
-				local shopPart = findOwnShop()
-				if not shopPart then
+				local runtime = shared.AetherShopRuntime
+				if not runtime then
+					notif('Shop', 'Shop runtime unavailable', 4, 'alert')
+					return
+				end
+				local entry = runtime.nearestItemShop()
+				if not entry then
 					notif('Shop', 'Shop not found', 4, 'alert')
 					return
 				end
-				local back = root.CFrame
-				local backVel = root.AssemblyLinearVelocity
-				root.AssemblyLinearVelocity = Vector3.zero
-				root.CFrame = CFrame.new(shopPart.Position + Vector3.new(0, 4, 0), shopPart.Position)
-				task.wait(0.25)
-				local shopId
-				for _, v in store.shop do
-					if v.Shop and (v.RootPart.Position - root.Position).Magnitude <= 20 then
-						shopId = v.Id
-					end
+				runtime.activateShop(entry)
+				local shopId = entry.Shop and entry.Id or nil
+				if not shopId then
+					notif('Shop', 'Invalid shop', 4, 'alert')
+					return
 				end
-				if shopId then
-					local item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
-					if item then
-						bedwars.Client:Get('BedwarsPurchaseItem'):CallServerAsync({
-							shopItem = item,
-							shopId = shopId
-						})
-					else
-						notif('Shop', 'Item not available', 4, 'alert')
-					end
-				else
-					notif('Shop', 'Purchase failed', 4, 'alert')
+				local item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
+				if not item then
+					notif('Shop', 'Item not available', 4, 'alert')
+					return
 				end
-				root.CFrame = back
-				root.AssemblyLinearVelocity = backVel
+				bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
+					shopItem = item,
+					shopId = shopId
+				})
 			end)
 			if not ok then
 				notif('Shop', 'Quick buy error', 4, 'alert')
@@ -37867,9 +37837,8 @@ run(function()
 			buying = false
 		end)
 	end
-
 	QuickBuy = Shop:CreateDropdown({Name = 'Quick buy item', List = {'wool_white', 'stone_sword', 'iron_sword', 'wood_sword', 'wood_pickaxe', 'arrow', 'diamond_sword'}, Tooltip = 'Item to buy instantly at your shop'})
-	Shop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Teleports to your shop, buys and returns instantly'})
+	Shop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Buys the selected item instantly'})
 end)
 
 run(function()

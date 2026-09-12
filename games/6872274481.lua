@@ -37657,7 +37657,7 @@ run(function()
 						if airborne and not flyOn then
 							local justLeft = wasGrounded
 							wasGrounded = false
-							clutchParams.FilterDescendantsInstances = {char}
+							clutchParams.FilterDescendantsInstances = {lplr.Character}
 							if justLeft and root.Velocity.Y <= 2 then
 								local downNear = workspace:Raycast(root.Position, Vector3.new(0, -18, 0), clutchParams)
 								if not downNear then
@@ -37686,7 +37686,7 @@ run(function()
 								end
 							end
 							if root.Velocity.Y < -FallSpeed.Value then
-								clutchParams.FilterDescendantsInstances = {char}
+								clutchParams.FilterDescendantsInstances = {lplr.Character}
 								local downHit = workspace:Raycast(root.Position, Vector3.new(0, -120, 0), clutchParams)
 								if not downHit then
 									if Debug.Enabled and not dbgTrigger then

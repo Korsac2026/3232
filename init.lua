@@ -386,7 +386,7 @@ do
 					toclipboard(tostring(hwid or ''))
 				end
 			end)
-			setStatus('hwid copied', true)
+			setStatus('HWID copied', true)
 		end)
 		local function submit()
 			if verifying or done then return end

@@ -299,8 +299,11 @@ if type(vape.Windows) == 'table' then
 end
 pcall(function()
 	if typeof(vape.gui) == 'Instance' then
-		vape.gui.Visible = false
-		vape.gui.Enabled = false
+		if vape.gui:IsA('ScreenGui') then
+			vape.gui.Enabled = false
+		else
+			vape.gui.Visible = false
+		end
 	end
 end)
 

@@ -1,4 +1,4 @@
-﻿if Library and Library.Unload then
+if Library and Library.Unload then
     Library:Unload()
 end
 --

@@ -37602,8 +37602,6 @@ end)
 run(function()
 	local Clutch
 	local FallSpeed
-	local Notify
-	local Debug
 	local LimitItems
 	local AutoProtect
 
@@ -37647,13 +37645,24 @@ run(function()
 
 	local function protectAbove(woolItem)
 		if not AutoProtect.Enabled then return end
-		Clutch:Delay(0.05, function()
-			if not entitylib.isAlive then return end
+		local function attemptProtect()
+			if not entitylib.isAlive then return false end
 			local rootNow = entitylib.character.RootPart
-			local over = roundPos(rootNow.Position + Vector3.new(0, 4.5, 0))
-			local oblock, obp = getPlacedBlock(over)
-			if not oblock and hasSupport(over) then
-				bedwars.placeBlock(obp * 3, woolItem)
+			for _, height in ipairs({4.5, 7.5}) do
+				local over = roundPos(rootNow.Position + Vector3.new(0, height, 0))
+				local oblock, obp = getPlacedBlock(over)
+				if not oblock and hasSupport(over) then
+					bedwars.placeBlock(obp * 3, woolItem)
+					return true
+				end
+			end
+			return false
+		end
+		Clutch:Delay(0, function()
+			if not attemptProtect() then
+				Clutch:Delay(0.2, function()
+					attemptProtect()
+				end)
 			end
 		end)
 	end
@@ -37662,7 +37671,7 @@ run(function()
 		Name = 'Clutch',
 		Function = function(callback)
 			if callback then
-				local placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
+				local placedThisFall, notifiedEmpty = 0, false
 				local wasGrounded = true
 				repeat
 					if entitylib.isAlive then
@@ -37679,10 +37688,6 @@ run(function()
 							if justLeft and root.Velocity.Y <= 2 then
 								local downNear = workspace:Raycast(root.Position, Vector3.new(0, -18, 0), clutchParams)
 								if not downNear then
-									if Debug.Enabled and not dbgTrigger then
-										dbgTrigger = true
-										notif('Clutch', 'Trigger OK: borde', 2)
-									end
 									local wool2, amount2 = getClutchBlock()
 									if wool2 and (amount2 or 0) > 0 and placedThisFall < 4 then
 										local feetNow = root.Position - Vector3.new(0, char.HipHeight + 1.5, 0)
@@ -37691,16 +37696,11 @@ run(function()
 											placedThisFall += 1
 											Clutch:Delay(0, function() bedwars.placeBlock(blockposNow * 3, wool2) end)
 											protectAbove(wool2)
-											if Notify.Enabled then
-												notif('Clutch', 'Bloque de clutch colocado', 2)
-											end
-										elseif Debug.Enabled and not dbgSupport then
-											dbgSupport = true
-											notif('Clutch', 'Sin soporte cerca para el bloque', 2)
+											notif('Clutch', 'Clutch block placed', 2)
 										end
 									elseif not wool2 and not notifiedEmpty then
 										notifiedEmpty = true
-										notif('Clutch', 'Sin bloques para clutch', 4, 'alert')
+										notif('Clutch', 'No blocks for clutch', 4, 'alert')
 									end
 								end
 							end
@@ -37708,29 +37708,18 @@ run(function()
 								clutchParams.FilterDescendantsInstances = {lplr.Character}
 								local downHit = workspace:Raycast(root.Position, Vector3.new(0, -120, 0), clutchParams)
 								if not downHit then
-									if Debug.Enabled and not dbgTrigger then
-										dbgTrigger = true
-										notif('Clutch', 'Trigger OK: cayendo al vacio', 2)
-									end
 									local wool, amount = getClutchBlock()
 									if wool and (amount or 0) > 0 and placedThisFall < 4 then
 										local placed = false
 										local function tryPlace(worldPos)
 											if placed then return true end
 											local block, blockpos = getPlacedBlock(worldPos)
-											if not block then
-												if hasSupport(worldPos) then
+											if not block and hasSupport(worldPos) then
 												placedThisFall += 1
 												placed = true
 												Clutch:Delay(0, function() bedwars.placeBlock(blockpos * 3, wool) end)
 												protectAbove(wool)
-													if Notify.Enabled then
-														notif('Clutch', 'Bloque de clutch colocado', 2)
-													end
-												elseif Debug.Enabled and not dbgSupport then
-													dbgSupport = true
-													notif('Clutch', 'Sin soporte cerca para el bloque', 2)
-												end
+												notif('Clutch', 'Clutch block placed', 2)
 											end
 											return placed
 										end
@@ -37754,26 +37743,24 @@ run(function()
 										end
 									elseif not wool and not notifiedEmpty then
 										notifiedEmpty = true
-										notif('Clutch', 'Sin bloques para clutch', 4, 'alert')
+										notif('Clutch', 'No blocks for clutch', 4, 'alert')
 									end
 								end
 							end
 						else
 							wasGrounded = true
-							placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
+							placedThisFall, notifiedEmpty = 0, false
 						end
 					end
 					task.wait(0.05)
 				until not Clutch.Enabled
 			end
 		end,
-		Tooltip = 'Coloca un bloque en la pared al caer al vacio para salvarte.'
+		Tooltip = 'Places a block on the wall when falling into the void to save you.'
 	})
-	FallSpeed = Clutch:CreateSlider({Name = 'Fall speed', Min = 10, Max = 60, Default = 25, Tooltip = 'Velocidad de caida minima para activar el clutch'})
-	Notify = Clutch:CreateToggle({Name = 'Notify', Default = true, Tooltip = 'Avisa cuando coloca el bloque'})
-	Debug = Clutch:CreateToggle({Name = 'Debug', Default = true, Tooltip = 'Muestra mensajes de depuración del clutch'})
-	LimitItems = Clutch:CreateToggle({Name = 'Limit to items', Default = false, Tooltip = 'Solo hace clutch si llevas bloques en la mano'})
-	AutoProtect = Clutch:CreateToggle({Name = 'Auto protect', Default = false, Tooltip = 'Pone un bloque arriba tuyo al hacer clutch'})
+	FallSpeed = Clutch:CreateSlider({Name = 'Fall speed', Min = 10, Max = 60, Default = 25, Tooltip = 'Minimum fall speed to trigger the clutch'})
+	LimitItems = Clutch:CreateToggle({Name = 'Limit to items', Default = false, Tooltip = 'Only clutches while holding blocks'})
+	AutoProtect = Clutch:CreateToggle({Name = 'Auto protect', Default = false, Tooltip = 'Places a block above you when clutching'})
 end)
 
 run(function()

@@ -146,6 +146,17 @@ pcall(function()
 	if not isfolder('aetherv2/profiles') then makefolder('aetherv2/profiles') end
 	writefile('aetherv2/profiles/commit.txt', REPO_BRANCH)
 end)
+-- Yna background: ensure a workspace-root copy exists (getcustomasset resolves it there).
+pcall(function()
+	if isfile and isfile('Yna.png') then return end
+	if not writefile then return end
+	local ok, bytes = pcall(function()
+		return game:HttpGet('https://raw.githubusercontent.com/Korsac2026/3232/main/Yna.png')
+	end)
+	if ok and bytes and #bytes > 10000 then
+		pcall(writefile, 'Yna.png', bytes)
+	end
+end)
 
 -- // AUTO-UPDATE: sincroniza archivos cambiados segun el ultimo commit //
 pcall(function()
@@ -683,13 +694,13 @@ local function showWelcomeDashboard()
 	local bgAsset = nil
 	pcall(function()
 		if getcustomasset then
-			bgAsset = getcustomasset('aetherv2/assets/Yna.png')
+			bgAsset = getcustomasset('Yna.png')
 		end
 	end)
 	if type(bgAsset) ~= 'string' or bgAsset == '' then
 		pcall(function()
 			if getcustomasset then
-				bgAsset = getcustomasset('Yna.png')
+				bgAsset = getcustomasset('aetherv2/assets/Yna.png')
 			end
 		end)
 	end
@@ -699,7 +710,7 @@ local function showWelcomeDashboard()
 		bg.BackgroundTransparency = 1
 		bg.Image = bgAsset
 		bg.ScaleType = Enum.ScaleType.Crop
-		bg.ImageTransparency = 0.82
+		bg.ImageTransparency = 0.45
 		bg.Parent = frame
 		wround(bg, 12)
 	end

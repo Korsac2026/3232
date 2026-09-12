@@ -581,6 +581,258 @@ elseif not exists('aetherv2/main.lua') then
 	error('Could not download aetherv2/main.lua')
 end
 
+-- // WELCOME DASHBOARD: updates, key time left, info + logout //
+local function wround(obj, r)
+	local c = Instance.new('UICorner')
+	c.CornerRadius = UDim.new(0, r or 10)
+	c.Parent = obj
+	return c
+end
+
+local function wmaskKey(k)
+	k = tostring(k or '')
+	if #k <= 8 then return '••••••••' end
+	return k:sub(1, 8) .. '••••••••'
+end
+
+local function wfetchUpdates()
+	local updates = {}
+	local ok, body = pcall(function()
+		return game:HttpGet('https://api.github.com/repos/Korsac2026/3232/commits?per_page=5', true)
+	end)
+	if ok and type(body) == 'string' then
+		local dok, data = pcall(function()
+			return game:GetService('HttpService'):JSONDecode(body)
+		end)
+		if dok and type(data) == 'table' then
+			for _, c in ipairs(data) do
+				if type(c) == 'table' and type(c.commit) == 'table' then
+					local msg = tostring(c.commit.message or ''):gsub('\n.*', '')
+					if #msg > 54 then msg = msg:sub(1, 51) .. '...' end
+					local date = ''
+					pcall(function()
+						date = (c.commit.committer and c.commit.committer.date) or (c.commit.author and c.commit.author.date) or ''
+					end)
+					table.insert(updates, {msg = msg, date = tostring(date)})
+				end
+			end
+		end
+	end
+	return updates
+end
+
+local function wagoText(iso)
+	local y, mo, d = tostring(iso):match('(%d+)-(%d+)-(%d+)')
+	if not y then return '' end
+	local ok, t = pcall(os.time, {year = tonumber(y), month = tonumber(mo), day = tonumber(d), hour = 12})
+	if not ok or not t then return '' end
+	local days = math.floor((os.time() - t) / 86400)
+	if days <= 0 then return 'today' end
+	if days == 1 then return 'yesterday' end
+	return days .. ' days ago'
+end
+
+local function wkeyTimeLeft(info)
+	if type(info) ~= 'table' then return nil, nil end
+	local exp = tonumber(info.expiry)
+	if not exp then return nil, nil end
+	if exp > 1e12 then exp = exp / 1000 end
+	local left = math.floor((exp - os.time()) / 86400)
+	local dateStr = '?'
+	pcall(function() dateStr = os.date('%Y-%m-%d', math.floor(exp)) end)
+	return left, dateStr
+end
+
+local function showWelcomeDashboard()
+	local parent = loadingParent()
+	if not parent then return end
+	if parent:FindFirstChild('UraniumWelcome') then return end
+	local key = shared.ReaperKey
+	local info = shared.ReaperKeyInfo
+	local hwid = shared.ReaperHwid
+	if type(key) ~= 'string' or key == '' then return end
+
+	local updates = wfetchUpdates()
+
+	local execName = 'Unknown'
+	pcall(function()
+		if identifyexecutor then
+			local n = identifyexecutor()
+			execName = tostring(type(n) == 'table' and n[1] or n)
+		end
+	end)
+
+	local daysLeft, expiryDate = wkeyTimeLeft(info)
+
+	local screen = Instance.new('ScreenGui')
+	screen.Name = 'UraniumWelcome'
+	screen.ResetOnSpawn = false
+	screen.DisplayOrder = 1000
+	screen.IgnoreGuiInset = true
+	screen.Parent = parent
+
+	local frame = Instance.new('Frame')
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(560, 430)
+	frame.BackgroundColor3 = Color3.fromRGB(11, 13, 18)
+	frame.BorderSizePixel = 0
+	frame.Parent = screen
+	wround(frame, 12)
+
+	local bgAsset = nil
+	pcall(function()
+		if getcustomasset then
+			bgAsset = getcustomasset('aetherv2/assets/Yna.png')
+		end
+	end)
+	if type(bgAsset) ~= 'string' or bgAsset == '' then
+		pcall(function()
+			if getcustomasset then
+				bgAsset = getcustomasset('Yna.png')
+			end
+		end)
+	end
+	if type(bgAsset) == 'string' and bgAsset ~= '' then
+		local bg = Instance.new('ImageLabel')
+		bg.Size = UDim2.fromScale(1, 1)
+		bg.BackgroundTransparency = 1
+		bg.Image = bgAsset
+		bg.ScaleType = Enum.ScaleType.Crop
+		bg.ImageTransparency = 0.82
+		bg.Parent = frame
+		wround(bg, 12)
+	end
+	local shade = Instance.new('Frame')
+	shade.Size = UDim2.fromScale(1, 1)
+	shade.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shade.BackgroundTransparency = 0.45
+	shade.BorderSizePixel = 0
+	shade.Parent = frame
+	wround(shade, 12)
+
+	local accent = Instance.new('Frame')
+	accent.Size = UDim2.new(1, 0, 0, 3)
+	accent.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+	accent.BorderSizePixel = 0
+	accent.Parent = frame
+
+	local function label(text, pos, size, color, font, px, align)
+		local l = Instance.new('TextLabel')
+		l.Position = pos
+		l.Size = size
+		l.BackgroundTransparency = 1
+		l.Text = text
+		l.TextColor3 = color
+		l.Font = font or Enum.Font.Gotham
+		l.TextSize = px or 13
+		l.TextXAlignment = align or Enum.TextXAlignment.Left
+		l.TextTruncate = Enum.TextTruncate.AtEnd
+		l.Parent = frame
+		return l
+	end
+
+	local closeBtn = Instance.new('TextButton')
+	closeBtn.AnchorPoint = Vector2.new(1, 0)
+	closeBtn.Position = UDim2.new(1, -12, 0, 12)
+	closeBtn.Size = UDim2.fromOffset(28, 28)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(25, 30, 38)
+	closeBtn.BorderSizePixel = 0
+	closeBtn.Text = 'X'
+	closeBtn.TextColor3 = Color3.fromRGB(200, 210, 220)
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 13
+	closeBtn.Parent = frame
+	wround(closeBtn, 8)
+	closeBtn.MouseButton1Click:Connect(function()
+		pcall(function() screen:Destroy() end)
+	end)
+
+	label('AETHER', UDim2.fromOffset(24, 14), UDim2.new(1, -70, 0, 28), Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 22)
+	label('session overview', UDim2.fromOffset(24, 40), UDim2.new(1, -70, 0, 16), Color3.fromRGB(130, 140, 150), Enum.Font.Gotham, 12)
+
+	label('YOUR KEY', UDim2.fromOffset(24, 66), UDim2.fromOffset(300, 16), Color3.fromRGB(0, 255, 170), Enum.Font.GothamBold, 11)
+	label(wmaskKey(key), UDim2.fromOffset(24, 82), UDim2.fromOffset(300, 20), Color3.fromRGB(230, 235, 240), Enum.Font.Code, 14)
+	local expText = 'Expires: ' .. tostring(expiryDate or '?')
+	label(expText, UDim2.fromOffset(24, 102), UDim2.fromOffset(300, 16), Color3.fromRGB(150, 160, 170), Enum.Font.Code, 12)
+	local daysText = daysLeft == nil and '—' or tostring(daysLeft)
+	local daysBig = label(daysText, UDim2.new(1, -160, 0, 52), UDim2.fromOffset(136, 52), Color3.fromRGB(0, 255, 170), Enum.Font.GothamBold, 44, Enum.TextXAlignment.Right)
+	daysBig.Position = UDim2.fromOffset(400, 66)
+	label('DAYS LEFT', UDim2.fromOffset(400, 116), UDim2.fromOffset(136, 14), Color3.fromRGB(130, 140, 150), Enum.Font.GothamBold, 11, Enum.TextXAlignment.Right)
+
+	label('LATEST UPDATES', UDim2.fromOffset(24, 140), UDim2.new(1, -48, 0, 16), Color3.fromRGB(0, 255, 170), Enum.Font.GothamBold, 11)
+	if #updates == 0 then
+		label('Could not load updates (offline?)', UDim2.fromOffset(40, 160), UDim2.new(1, -64, 0, 18), Color3.fromRGB(150, 160, 170), Enum.Font.Code, 12)
+	else
+		for i, u in ipairs(updates) do
+			if i > 5 then break end
+			local dot = Instance.new('Frame')
+			dot.Position = UDim2.fromOffset(28, 166 + (i - 1) * 22 + 6)
+			dot.Size = UDim2.fromOffset(6, 6)
+			dot.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+			dot.BorderSizePixel = 0
+			dot.Parent = frame
+			wround(dot, 3)
+			label(u.msg, UDim2.fromOffset(42, 160 + (i - 1) * 22), UDim2.new(1, -190, 0, 18), Color3.fromRGB(225, 230, 235), Enum.Font.Code, 12)
+			label(wagoText(u.date), UDim2.new(1, -150, 0, 18), UDim2.fromOffset(126, 18), Color3.fromRGB(130, 140, 150), Enum.Font.Code, 11, Enum.TextXAlignment.Right)
+		end
+	end
+
+	local hwidShort = tostring(hwid or '')
+	if #hwidShort > 30 then hwidShort = hwidShort:sub(1, 30) .. '...' end
+	label('HWID: ' .. hwidShort, UDim2.fromOffset(24, 278), UDim2.new(1, -48, 0, 16), Color3.fromRGB(150, 160, 170), Enum.Font.Code, 11)
+	label('Executor: ' .. tostring(execName), UDim2.fromOffset(24, 296), UDim2.new(1, -48, 0, 16), Color3.fromRGB(150, 160, 170), Enum.Font.Code, 11)
+
+	local logoutBtn = Instance.new('TextButton')
+	logoutBtn.Position = UDim2.fromOffset(24, 322)
+	logoutBtn.Size = UDim2.new(0.5, -32, 0, 36)
+	logoutBtn.BackgroundTransparency = 1
+	logoutBtn.Text = 'LOG OUT'
+	logoutBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+	logoutBtn.Font = Enum.Font.GothamBold
+	logoutBtn.TextSize = 14
+	logoutBtn.Parent = frame
+	local logoutStroke = Instance.new('UIStroke')
+	logoutStroke.Color = Color3.fromRGB(255, 90, 90)
+	logoutStroke.Thickness = 1
+	logoutStroke.Transparency = 0.3
+	logoutStroke.Parent = logoutBtn
+	wround(logoutBtn, 8)
+	logoutBtn.MouseButton1Click:Connect(function()
+		logoutBtn.Text = 'LOGGING OUT...'
+		shared.ReaperKey = nil
+		shared.ReaperAuthorized = nil
+		shared.ReaperHwid = nil
+		shared.ReaperKeyInfo = nil
+		pcall(function()
+			if getgenv then getgenv().ReaperKey = nil end
+		end)
+		pcall(function()
+			if delfile then delfile('aetherv2/profiles/key.txt') end
+		end)
+		pcall(function() screen:Destroy() end)
+		task.wait(0.5)
+		pcall(function()
+			if shared.vape then shared.vape:Uninject() end
+		end)
+	end)
+
+	local okBtn = Instance.new('TextButton')
+	okBtn.Position = UDim2.new(0.5, 8, 0, 322)
+	okBtn.Size = UDim2.new(0.5, -32, 0, 36)
+	okBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+	okBtn.BorderSizePixel = 0
+	okBtn.Text = 'CONTINUE'
+	okBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+	okBtn.Font = Enum.Font.GothamBold
+	okBtn.TextSize = 14
+	okBtn.Parent = frame
+	wround(okBtn, 8)
+	okBtn.MouseButton1Click:Connect(function()
+		pcall(function() screen:Destroy() end)
+	end)
+end
+
 local ok, result = pcall(function()
 	return loadstring(readfile('aetherv2/main.lua'), 'main')(license)
 end)
@@ -589,5 +841,9 @@ if not ok then
 	closeLoadingScreen()
 	error(result)
 end
+
+task.spawn(function()
+	pcall(showWelcomeDashboard)
+end)
 
 return result

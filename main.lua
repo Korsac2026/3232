@@ -265,10 +265,17 @@ end
 local function finishLoading()
 	vape.Init = nil
 	local loaded, loadError = pcall(function()
-		vape:Load()
+		vape:Load(true)
 	end)
 	if not loaded then
 		warn('[Uranium] Config load failed: '..tostring(loadError))
+	end
+	-- gamesense-style features GUI (Kits + Legit tabs only).
+	local gsok, gserr = pcall(function()
+		runChunk(downloadFile('aetherv2/guis/gamesense.lua'), 'gsgui', license)
+	end)
+	if not gsok then
+		warn('[Uranium] features GUI failed: '..tostring(gserr))
 	end
 	if shared.UraniumPremiumAuthorized and not license.Closet then
 		pcall(function()
@@ -321,11 +328,10 @@ local function finishLoading()
 	end))
 
 	if not shared.vapereload and not license.Closet then
-		local bind = table.concat(vape.Keybind or {'RightShift'}, ' + '):upper()
 		pcall(function()
 			vape:CreateNotification(
 				'Finished Loading',
-				(vape.VapeButton and 'Press the button in the top right' or 'Press '..bind)..' to open GUI',
+				'Press INSERT to open GUI',
 				5
 			)
 		end)

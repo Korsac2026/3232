@@ -14680,6 +14680,47 @@ run(function()
 	local runtime = shared.AetherShopRuntime
 
 	local OpenShop
+	local QuickBuy
+	local buying = false
+
+	local function instantBuy(itemType)
+		if buying then return end
+		if not entitylib.isAlive then return end
+		buying = true
+		task.spawn(function()
+			local ok = pcall(function()
+				if not runtime then
+					notif('OpenShop', 'Shop runtime unavailable', 4, 'alert')
+					return
+				end
+				local entry = runtime.nearestItemShop()
+				if not entry then
+					notif('OpenShop', 'Shop not found', 4, 'alert')
+					return
+				end
+				runtime.activateShop(entry)
+				local shopId = entry.Shop and entry.Id or nil
+				if not shopId then
+					notif('OpenShop', 'Invalid shop', 4, 'alert')
+					return
+				end
+				local item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
+				if not item then
+					notif('OpenShop', 'Item not available', 4, 'alert')
+					return
+				end
+				bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
+					shopItem = item,
+					shopId = shopId
+				})
+			end)
+			if not ok then
+				notif('OpenShop', 'Quick buy error', 4, 'alert')
+			end
+			buying = false
+		end)
+	end
+
 	OpenShop = vape.Categories.Inventory:CreateModule({
 		Name = 'OpenShop',
 		Function = function(callback)
@@ -14691,6 +14732,8 @@ run(function()
 		end,
 		Tooltip = 'Opens the nearest item shop'
 	})
+	QuickBuy = OpenShop:CreateDropdown({Name = 'Quick buy item', List = {'wool_white', 'stone_sword', 'iron_sword', 'wood_sword', 'wood_pickaxe', 'arrow', 'diamond_sword'}, Tooltip = 'Item to buy instantly at the nearest shop'})
+	OpenShop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Buys the selected item instantly'})
 end)
 
 run(function()
@@ -37761,84 +37804,6 @@ run(function()
 	FallSpeed = Clutch:CreateSlider({Name = 'Fall speed', Min = 10, Max = 60, Default = 25, Tooltip = 'Minimum fall speed to trigger the clutch'})
 	LimitItems = Clutch:CreateToggle({Name = 'Limit to items', Default = false, Tooltip = 'Only clutches while holding blocks'})
 	AutoProtect = Clutch:CreateToggle({Name = 'Auto protect', Default = false, Tooltip = 'Places a block above you when clutching'})
-end)
-
-run(function()
-	local Shop
-
-	local function getShopApp()
-		local rep = game:GetService('ReplicatedStorage')
-		local lps = game:GetService('Players').LocalPlayer:WaitForChild('PlayerScripts')
-		local Flamework = require(rep.rbxts_include.node_modules['@flamework'].core.out).Flamework
-		local AppController = Flamework.resolveDependency('@easy-games/game-core:client/controllers/app-controller@AppController')
-		local appIds = require(lps.TS.ui.types['app-config'])
-		return AppController, appIds.BedwarsAppIds.BEDWARS_ITEM_SHOP
-	end
-
-	Shop = vape.Categories.Utility:CreateModule({
-		Name = 'Shop',
-		Function = function(callback)
-			if callback then
-				local ok, err = pcall(function()
-					local AppController, shopId = getShopApp()
-					AppController:openApp(shopId, {shopId = nil, IsHomeBase = true})
-				end)
-				if not ok then
-					notif('Shop', 'Could not open the shop', 4, 'alert')
-				end
-			else
-				pcall(function()
-					local AppController, shopId = getShopApp()
-					AppController:closeApp(shopId)
-				end)
-			end
-		end,
-		Tooltip = 'Opens the item shop from anywhere.'
-	})
-
-	local QuickBuy
-	local buying = false
-
-	local function instantBuy(itemType)
-		if buying then return end
-		if not entitylib.isAlive then return end
-		buying = true
-		task.spawn(function()
-			local ok = pcall(function()
-				local runtime = shared.AetherShopRuntime
-				if not runtime then
-					notif('Shop', 'Shop runtime unavailable', 4, 'alert')
-					return
-				end
-				local entry = runtime.nearestItemShop()
-				if not entry then
-					notif('Shop', 'Shop not found', 4, 'alert')
-					return
-				end
-				runtime.activateShop(entry)
-				local shopId = entry.Shop and entry.Id or nil
-				if not shopId then
-					notif('Shop', 'Invalid shop', 4, 'alert')
-					return
-				end
-				local item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
-				if not item then
-					notif('Shop', 'Item not available', 4, 'alert')
-					return
-				end
-				bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
-					shopItem = item,
-					shopId = shopId
-				})
-			end)
-			if not ok then
-				notif('Shop', 'Quick buy error', 4, 'alert')
-			end
-			buying = false
-		end)
-	end
-	QuickBuy = Shop:CreateDropdown({Name = 'Quick buy item', List = {'wool_white', 'stone_sword', 'iron_sword', 'wood_sword', 'wood_pickaxe', 'arrow', 'diamond_sword'}, Tooltip = 'Item to buy instantly at your shop'})
-	Shop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Buys the selected item instantly'})
 end)
 
 run(function()

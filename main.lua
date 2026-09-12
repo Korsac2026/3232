@@ -271,12 +271,15 @@ local function finishLoading()
 	if not loaded then
 		warn('[Uranium] Config load failed: '..tostring(loadError))
 	end
-	-- gamesense-style features GUI (Kits + Legit tabs only).
+	-- gamesense-style features GUI (main category tabs; Kits/Legit keep panels).
 	local gsok, gserr = pcall(function()
 		runChunk(downloadFile('aetherv2/guis/gamesense.lua'), 'gsgui', license)
 	end)
 	if not gsok then
 		warn('[Uranium] features GUI failed: '..tostring(gserr))
+		pcall(writefile, 'aetherv2/gs-error.txt', tostring(gserr))
+	else
+		pcall(delfile, 'aetherv2/gs-error.txt')
 	end
 	if shared.UraniumPremiumAuthorized and not license.Closet then
 		pcall(function()

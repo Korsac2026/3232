@@ -166,12 +166,14 @@ if type(vape.Modules) == 'table' then
 end
 
 for _, entry in ipairs(CATEGORY_TABS) do
-	local name, icon = entry[1], entry[2]
-	local mods = byCategory[name]
-	if mods and #mods > 0 then
-		local tab = Window:CreateTab({Icon = icon})
-		renderList(tab, mods, name)
-	end
+	pcall(function()
+		local name, icon = entry[1], entry[2]
+		local mods = byCategory[name]
+		if mods and #mods > 0 then
+			local tab = Window:CreateTab({Icon = icon})
+			renderList(tab, mods, name)
+		end
+	end)
 end
 
 -- Panels tab: open the original Legit / Kits windows (each panel module
@@ -189,18 +191,20 @@ local function panelWindow(panel)
 	return nil
 end
 do
-	local tab = Window:CreateTab({Icon = 'rbxassetid://15453364412'})
-	local sec = tab:Section({Name = 'Panels', Side = 'Left', Fill = true})
-	for _, p in ipairs({{Title = 'Open Legit', Api = vape.Legit}, {Title = 'Open Kits', Api = vape.Kits}}) do
-		local win = panelWindow(p.Api)
-		if win then
-			sec:Button({Name = p.Title, Callback = function()
-				pcall(function() win.Visible = true end)
-			end})
+	pcall(function()
+		local tab = Window:CreateTab({Icon = 'rbxassetid://15453364412'})
+		local sec = tab:Section({Name = 'Panels', Side = 'Left', Fill = true})
+		for _, p in ipairs({{Title = 'Open Legit', Api = vape.Legit}, {Title = 'Open Kits', Api = vape.Kits}}) do
+			local win = panelWindow(p.Api)
+			if win then
+				sec:Button({Name = p.Title, Callback = function()
+					pcall(function() win.Visible = true end)
+				end})
+			end
 		end
-	end
+	end)
 end
-Window:SetTab(1)
+pcall(function() Window:SetTab(1) end)
 
 -- retire the old click GUI: unbind its hotkey and hide its category windows.
 -- Legit/Kits panels are left alone (opened from the Panels tab).
@@ -211,5 +215,7 @@ if type(vape.Windows) == 'table' then
 	end
 end
 
-GS:Init()
+pcall(function()
+	if type(GS.Init) == 'function' then GS:Init() end
+end)
 return true

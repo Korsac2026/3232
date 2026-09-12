@@ -30,7 +30,6 @@ local function fileIsUsable(path)
 	if not ok then return false end
 	if not content or content == '' then return false end
 	if content == '__DELETED_MARKER__' then return false end
-	if content:sub(1, 3) == '\239\187\191' then return false end
 	if path:sub(-4) == '.lua' and not content:find('This watermark is used to delete the file if its cached', 1, true) then
 		return false, content
 	end
@@ -124,7 +123,6 @@ local function hardenGui(source)
 	source = source:gsub('option:Load%(v%)', 'pcall(function() option:Load(v) end)')
 	source = source:gsub('object:Toggle%(true%)', 'pcall(function() object:Toggle(true) end)')
 	source = source:gsub('self:UpdateTextGUI%(true%)', 'pcall(function() self:UpdateTextGUI(true) end)')
-	source = source:gsub('function mainapi:AttachContextualOption%(option, settings%)', 'function mainapi:AttachContextualOption(option, settings) option.__s = settings', 1)
 	return source
 end
 
@@ -267,20 +265,10 @@ end
 local function finishLoading()
 	vape.Init = nil
 	local loaded, loadError = pcall(function()
-		vape:Load(true)
+		vape:Load()
 	end)
 	if not loaded then
 		warn('[Uranium] Config load failed: '..tostring(loadError))
-	end
-	-- gamesense-style features GUI (main category tabs; Kits/Legit keep panels).
-	local gsok, gserr = pcall(function()
-		runChunk(downloadFile('aetherv2/guis/gamesense.lua'), 'gsgui', license)
-	end)
-	if not gsok then
-		warn('[Uranium] features GUI failed: '..tostring(gserr))
-		pcall(writefile, 'aetherv2/gs-error.txt', tostring(gserr))
-	else
-		pcall(delfile, 'aetherv2/gs-error.txt')
 	end
 	if shared.UraniumPremiumAuthorized and not license.Closet then
 		pcall(function()
@@ -333,10 +321,11 @@ local function finishLoading()
 	end))
 
 	if not shared.vapereload and not license.Closet then
+		local bind = table.concat(vape.Keybind or {'RightShift'}, ' + '):upper()
 		pcall(function()
 			vape:CreateNotification(
 				'Finished Loading',
-				'Press INSERT to open GUI',
+				(vape.VapeButton and 'Press the button in the top right' or 'Press '..bind)..' to open GUI',
 				5
 			)
 		end)

@@ -40,7 +40,7 @@ local function isRuntimePath(relative)
 		return true
 	end
 	local prefix = relative:match('^([^/]+)/')
-	return prefix == 'games' or prefix == 'guis' or prefix == 'libraries' or prefix == 'assets' or prefix == 'lib'
+	return prefix == 'games' or prefix == 'guis' or prefix == 'libraries' or prefix == 'assets'
 end
 
 local function validDownloadedFile(path, body)

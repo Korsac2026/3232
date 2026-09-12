@@ -37657,30 +37657,43 @@ run(function()
 								clutchParams.FilterDescendantsInstances = {char}
 								local downHit = workspace:Raycast(root.Position, Vector3.new(0, -120, 0), clutchParams)
 								if not downHit then
-									local dir = humanoid.MoveDirection
-									if dir.Magnitude < 0.05 then dir = root.CFrame.LookVector end
-									dir = Vector3.new(dir.X, 0, dir.Z)
-									if dir.Magnitude > 0 then
-										dir = dir.Unit
-										local wallHit = workspace:Raycast(root.Position, dir * 15, clutchParams)
-										if wallHit then
-											local wool, amount = getClutchBlock()
-											if wool and (amount or 0) > 0 and placedThisFall < 3 then
-												local feet = root.Position - Vector3.new(0, char.HipHeight + 1.5, 0)
-												local target = roundPos(wallHit.Position + wallHit.Normal * 2)
-												target = Vector3.new(target.X, roundPos(feet).Y, target.Z)
-												if not getPlacedBlock(target) and hasSupport(target) then
-													placedThisFall += 1
-													Clutch:Delay(0, function() bedwars.placeBlock(target, wool) end)
-													if Notify.Enabled then
-														notif('Clutch', 'Bloque de clutch colocado', 2)
-													end
+									local wool, amount = getClutchBlock()
+									if wool and (amount or 0) > 0 and placedThisFall < 4 then
+										local placed = false
+										local function tryPlace(worldPos)
+											if placed then return true end
+											local block, blockpos = getPlacedBlock(worldPos)
+											if not block and hasSupport(worldPos) then
+												placedThisFall += 1
+												placed = true
+												Clutch:Delay(0, function() bedwars.placeBlock(blockpos, wool) end)
+												if Notify.Enabled then
+													notif('Clutch', 'Bloque de clutch colocado', 2)
 												end
-											elseif not wool and not notifiedEmpty then
-												notifiedEmpty = true
-												notif('Clutch', 'Sin bloques para clutch', 4, 'alert')
+											end
+											return placed
+										end
+
+										local feet = root.Position + root.Velocity * 0.1 - Vector3.new(0, char.HipHeight + 1.5, 0)
+										tryPlace(roundPos(feet))
+
+										if not placed then
+											local dir = humanoid.MoveDirection
+											if dir.Magnitude < 0.05 then dir = root.CFrame.LookVector end
+											dir = Vector3.new(dir.X, 0, dir.Z)
+											if dir.Magnitude > 0 then
+												dir = dir.Unit
+												local wallHit = workspace:Raycast(root.Position, dir * 15, clutchParams)
+												if wallHit then
+													local target = roundPos(wallHit.Position + wallHit.Normal * 2)
+													target = Vector3.new(target.X, roundPos(feet).Y, target.Z)
+													tryPlace(target)
+												end
 											end
 										end
+									elseif not wool and not notifiedEmpty then
+										notifiedEmpty = true
+										notif('Clutch', 'Sin bloques para clutch', 4, 'alert')
 									end
 								end
 							end

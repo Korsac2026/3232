@@ -1,0 +1,171 @@
+# AetherV2 backend services
+
+This directory contains the optional premium-key service, its Discord management bot, and the separate config-review service. Normal AetherV2 loads publicly from GitHub without a key.
+
+## Security model
+
+The Discord bot generates a random 256-bit key and returns the raw value exactly once in an ephemeral response. The registry stores only its SHA-256 key ID plus safe metadata, binding, usage count, and audit history.
+
+On first authorization, a key binds to a Roblox username/UserId verified against Roblox. Successful later authorizations by that same identity increment the usage count. Premium access uses a short-lived in-memory session, and every `/premium/source` and `/premium/tree` request rechecks the key status and current Roblox binding against the live registry. Revocation or expiry therefore invalidates existing sessions instead of waiting for their session TTL.
+
+The premium proxy allows only the configured private premium branch and premium path prefixes. It fails closed if the registry or GitHub cannot be checked. Requests have timeouts and bounded retries; registry mutations retry GitHub SHA conflicts idempotently.
+
+The application never stores or logs raw keys. Key IDs, usernames, and UserIds are safe to log. Premium authorization sends the raw key to `/premium/authorize` over HTTPS, so hosting/CDN access logs must be disabled or tightly restricted and redacted.
+
+## Requirements
+
+- Node.js 20 or newer.
+- A private GitHub repository and fine-grained token with **Contents: Read and write** for the registry branch.
+- HTTPS for the public source origin.
+- A Discord application with the `applications.commands` scope. Administrator permission is not required.
+
+Install and verify:
+
+```bash
+cd backend
+npm install
+npm run check
+npm test
+```
+
+`package-lock.json` is committed; production should use `npm ci`.
+
+## Required environment variables
+
+```text
+GITHUB_TOKEN=github_pat_...
+GITHUB_REPO=Korsac2026/3232
+GITHUB_BRANCH=main
+# Private repository holding only premium modules; grant this token Contents: Read.
+PREMIUM_GITHUB_REPO=Korsac2026/3232Premium
+PREMIUM_GITHUB_BRANCH=main
+PUBLIC_ORIGIN=https://source.example.com
+
+DISCORD_TOKEN=...
+DISCORD_APPLICATION_ID=...
+DISCORD_OWNER_IDS=123456789012345678,optional_second_owner
+DISCORD_GUILD_ID=optional_test_guild
+```
+
+`DISCORD_OWNER_IDS` contains immutable Discord user IDs. Display names and usernames never authorize management actions. `DISCORD_GUILD_ID` makes command updates appear immediately in that guild; without it, commands register globally.
+
+Legacy `AETHER_KEY`, `AETHER_KEYS`, and singular `DISCORD_OWNER_ID` fallbacks are no longer read. Keys already represented in the registry continue to work; an old environment-only raw key that never received a registry record must be replaced with `/key generate`.
+
+## Optional hardening and capacity variables
+
+```text
+AETHER_REGISTRY_FILE=backend/key-bindings.json
+AETHER_ALLOWED_REFS=main
+AETHER_ALLOWED_PATHS=init.lua,main.lua,loadstring,version.txt,assets/,configs/,games/,guis/,libraries/,profiles/
+# Restrict private premium files to the module paths the client needs.
+PREMIUM_ALLOWED_PATHS=games/
+AETHER_SESSION_MINUTES=120
+AETHER_MAX_SESSIONS=2000
+AETHER_MAX_SESSIONS_PER_KEY=3
+AETHER_REQUEST_TIMEOUT_MS=8000
+AETHER_GITHUB_RETRIES=3
+AETHER_GITHUB_CONFLICT_RETRIES=4
+AETHER_RETRY_BASE_MS=150
+AETHER_RATE_WINDOW_MS=60000
+AETHER_RATE_LIMIT=180
+AETHER_AUTH_RATE_LIMIT=20
+AETHER_TRUST_PROXY=false
+AETHER_AUDIT_LIMIT=500
+```
+
+The configured `GITHUB_BRANCH` is always approved and is used by generated session loaders. Additional refs must be listed explicitly. Keep the path list limited to files the client genuinely needs; backend, workflow, Git metadata, and arbitrary repository files are denied by default.
+
+
+## Premium modules
+
+The public `init.lua` always loads normal AetherV2 from GitHub. When the optional `premiumKey` is valid, it authorizes a short-lived session with `/premium/authorize`, then reads the private `AetherV2Premium` tree through `/premium/tree`. Invalid, revoked, expired, or omitted keys do not interrupt the public loader.
+
+Premium modules are discovered automatically from this layout:
+
+```text
+games/
+  universal/
+    blatant/
+      module.lua
+    render/
+      module.lua
+  <PlaceId>/
+    blatant/
+      module.lua
+    world/
+      module.lua
+```
+
+All universal modules load first, then modules for the current `PlaceId`. Every category folder is supported—including `blatant`, `render`, and `world`—and empty folders require no special handling. Each module receives `(vape, license, context)`, where `context.Category` is the matching AetherV2 category name and `context.CategoryApi` is its API when the category exists. A module may either register directly or return a function that receives the same arguments.
+
+Keep `AetherV2Premium` private and grant the Render service's fine-grained GitHub token **Contents: Read** on it. Do not place its GitHub token or private URLs in the client loader.
+
+## Running and deploying
+
+The source proxy can start the bot in the same process:
+
+```bash
+npm run start:source
+```
+
+If `DISCORD_TOKEN` is absent, only the proxy runs. The bot can also run separately with `npm run start:bot`. The older config-review service runs with `npm start` and uses its own `ADMIN_KEY` and `DATA_FILE` settings.
+
+For a combined deployment, use `node private-source.js`, an HTTPS origin matching `PUBLIC_ORIGIN`, and outbound access to GitHub, Roblox, and Discord. Protect service logs and dashboard access. The first registry write creates or upgrades the version-3 registry through GitHub’s Contents API.
+
+## Discord key commands
+
+All key-management responses are ephemeral and restricted to configured Discord managers:
+
+- `/key panel` — dashboard with totals, key list, audit log, and refresh.
+- `/key generate` — creates an optional premium key and shows the raw key plus the public GitHub `premiumKey` loadstring once. Copyable values use both fenced code blocks and inline code for desktop/mobile.
+- `/key list` — paginated list, filterable by status, username, label, and source.
+- `/key info` — safe premium-key details; full key IDs, Roblox usernames/UserIds, and dates use both fenced and inline copy formats.
+- `/key edit` — changes label or expiry. `none` clears either value.
+- `/key renew` — sets a required future expiry and reactivates an expired/revoked key.
+- `/key unlink` — asks for confirmation, then removes the Roblox binding.
+- `/key revoke` — asks for confirmation, records a `revoke` event, and invalidates premium sessions; normal AetherV2 remains public.
+- `/key enable` — enables a non-expired revoked key and records an `enable` event.
+- `/key rotate` — asks for confirmation, revokes the old key, transfers its binding, and shows the replacement raw key once.
+- `/key audit` — paginated, size-bounded audit output.
+
+Raw keys cannot be listed, inspected, or recovered because they are not stored. Rotate when a user loses one.
+
+## Registry and failure behavior
+
+The complete registry structure is validated before reads are accepted or writes are sent. Key records, bindings, usage counters, dates, rotation links, and audit events are checked; malformed or orphaned data is rejected rather than normalized silently.
+
+Registry mutations carry an operation ID. If GitHub reports a SHA conflict, timeout, rate limit, or transient server failure, the operation rereads the registry and retries without duplicating generation, binding usage, or audit events.
+
+Source and authorization rate limits are per process and per observed client IP. Leave `AETHER_TRUST_PROXY=false` unless the service is reachable only through a trusted reverse proxy that replaces `X-Forwarded-For`. Sessions and limiter buckets are in memory, so a restart invalidates sessions and resets limits. Run a shared external limiter/session store if deploying multiple replicas. A GitHub or registry outage intentionally blocks premium access until validation is available; normal public AetherV2 is unaffected.
+
+## Config-review service
+
+`server.js` remains separate from key management. It accepts config submissions, exposes an `ADMIN_KEY`-protected review queue, and publishes accepted config files through GitHub. Its persistent `DATA_FILE` must be backed up. Do not reuse Discord, GitHub, admin, or Aether access keys across roles.
+
+Who can review:
+
+- API: anyone presenting `Authorization: Bearer $ADMIN_KEY`. Set `ADMIN_KEY` on the Worker or `npm start` process. Rotate that value to drop old reviewers.
+- In-game Review button: Roblox usernames listed in `reviewAccounts` in `guis/new.core.lua`. That list is display-only. The key is the real gate.
+- Client sends the key from `aetherv2/profiles/configadminkey.txt`.
+
+How to change reviewers:
+
+1. Edit `reviewAccounts` in `guis/new.core.lua` (lowercase Roblox names).
+2. Give each reviewer `configadminkey.txt` containing the current `ADMIN_KEY`.
+3. Redeploy/restart the config backend after changing `ADMIN_KEY`.
+4. `DISCORD_OWNER_IDS` does not grant config-review access.
+
+## Execution analytics
+
+The public loader reports one execution to the premium-source service without sending a premium key. When the executor exposes a request API, the report includes the Roblox UserId so the backend can count unique players; only a one-way SHA-256 hash is persisted. Executors without a request API still increment the anonymous execution total.
+
+For durable all-time stats on Render, attach a persistent disk to the combined `node private-source.js` service and set:
+
+```text
+AETHER_STATS_FILE=/var/data/execution-stats.json
+AETHER_ANALYTICS_RATE_LIMIT=60
+```
+
+Run the Discord bot in the same `private-source.js` process so it reads the same live stats store. `/stats summary` shows the current hour, day, week, month, and all-time totals. `/stats graph` renders a PNG line graph for hourly (24 points), daily (30), weekly (12), or monthly (12) data and can graph either executions or unique players. Buckets use UTC.
+
+The client-side report is intentionally lightweight and can be spoofed by a modified client, so these numbers are product telemetry rather than tamper-proof billing/security data. The analytics endpoint is separately rate-limited and never accepts or stores raw premium keys.

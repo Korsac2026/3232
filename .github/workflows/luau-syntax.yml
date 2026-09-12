@@ -1,0 +1,49 @@
+name: Luau syntax
+
+on:
+  pull_request:
+    paths:
+      - '**/*.lua'
+      - 'backend/**'
+      - '.github/workflows/luau-syntax.yml'
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Luau compiler
+        run: |
+          curl -fsSL https://github.com/luau-lang/luau/releases/latest/download/luau-ubuntu.zip -o /tmp/luau.zip
+          unzip -q /tmp/luau.zip -d /tmp/luau
+          chmod +x /tmp/luau/luau-compile
+
+      - name: Check Luau syntax
+        shell: bash
+        run: |
+          set -uo pipefail
+          failures=0
+          check_file() {
+            local file="$1"
+            if ! /tmp/luau/luau-compile "$file" >/dev/null 2>/tmp/luau.err; then
+              failures=$((failures + 1))
+              echo "=== $file ==="
+              cat /tmp/luau.err
+            fi
+          }
+          while IFS= read -r file; do check_file "$file"; done <<EOF
+          $(find . -type f -name '*.lua' -not -path './.git/*' -not -path './guis/liquidglass/*')
+          EOF
+          echo "failures=$failures"
+          if [ "$failures" -ne 0 ]; then exit 1; fi
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm ci && npm run check && npm test

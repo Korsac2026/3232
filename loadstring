@@ -1,0 +1,4 @@
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Korsac2026/3232/main/init.lua', true), 'init.lua')({
+	Closet = false, -- Change to true to disable notifications, loading screen, and console messages
+	premiumKey = "KEY_HERE"
+})

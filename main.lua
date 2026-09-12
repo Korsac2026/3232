@@ -30,6 +30,7 @@ local function fileIsUsable(path)
 	if not ok then return false end
 	if not content or content == '' then return false end
 	if content == '__DELETED_MARKER__' then return false end
+	if content:sub(1, 3) == '\239\187\191' then return false end
 	if path:sub(-4) == '.lua' and not content:find('This watermark is used to delete the file if its cached', 1, true) then
 		return false, content
 	end

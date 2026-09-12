@@ -59,21 +59,50 @@ local function optionValue(opt, key)
 	return nil
 end
 
+-- TextList mirrors the original vape text-list: a textbox + "Add" button appends
+-- entries via ChangeValue (so a module can be pointed at more objects), and each
+-- entry is a toggle that enables/disables it in ListEnabled while re-running the
+-- option's Function.
 local function renderTextList(sec, opt, key, kids)
 	if type(opt.List) ~= 'table' then return end
 	table.insert(kids, sec:Label({Message = key}))
-	table.insert(kids, sec:TextBox({Name = key .. ' (add)', Default = '', Flag = 'aeth_list_' .. key,
-		CheckIfPressedEnter = true,
-		Callback = function(text)
-			local v = tostring(text or ''):gsub('%s+', '')
-			if v ~= '' then pcall(function() opt:ChangeValue(v) end) end
+	local function runFn()
+		local og = s(opt, key)
+		local fn = og.Function or opt.Function
+		if type(fn) == 'function' then pcall(fn, opt.List) end
+	end
+	local addbox = nil
+	pcall(function()
+		addbox = sec:TextBox({Name = 'Add ' .. key, Default = '', Flag = 'aeth_listadd_' .. key,
+			Callback = function() end})
+		table.insert(kids, addbox)
+	end)
+	pcall(function()
+		table.insert(kids, sec:Button({Name = 'Add', Callback = function()
+			local text = ''
+			if addbox then pcall(function() text = tostring(addbox:Get() or '') end) end
+			text = text:gsub('%s+', '')
+			if text ~= '' then
+				pcall(function() opt:ChangeValue(text) end)
+				runFn()
+			end
 		end}))
+	end)
 	for _, v in ipairs(opt.List) do
 		local name = tostring(v)
-		table.insert(kids, sec:Toggle({Name = name, Default = opt.ListEnabled and table.find(opt.ListEnabled, v) ~= nil,
+		table.insert(kids, sec:Toggle({Name = name,
+			Default = opt.ListEnabled and table.find(opt.ListEnabled, v) ~= nil,
 			Flag = 'aeth_tl_' .. key .. '_' .. name,
 			Callback = function(st)
-				pcall(function() opt:ChangeValue(name) end)
+				local enabled = opt.ListEnabled and table.find(opt.ListEnabled, name) ~= nil
+				if enabled and not st then
+					local ind = table.find(opt.ListEnabled, name)
+					if ind then table.remove(opt.ListEnabled, ind) end
+					runFn()
+				elseif not enabled and st then
+					table.insert(opt.ListEnabled, name)
+					runFn()
+				end
 			end}))
 	end
 end

@@ -215,6 +215,7 @@ do
 	end
 
 	local verifiedKey = nil
+	local saveKeyChoice = false
 
 	local function promptKey(hwid, verifyFn)
 		local provided = nil
@@ -252,7 +253,7 @@ do
 		local frame = Instance.new('Frame')
 		frame.AnchorPoint = Vector2.new(0.5, 0.5)
 		frame.Position = UDim2.fromScale(0.5, 0.5)
-		frame.Size = UDim2.fromOffset(440, 330)
+		frame.Size = UDim2.fromOffset(440, 345)
 		frame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
 		frame.BorderSizePixel = 0
 		frame.Parent = screen
@@ -352,8 +353,24 @@ do
 		btn.TextSize = 15
 		btn.AutoButtonColor = true
 		btn.Parent = frame
+		local saveBox = false
+		local saveBtn = Instance.new('TextButton')
+		saveBtn.Position = UDim2.fromOffset(20, 240)
+		saveBtn.Size = UDim2.new(1, -40, 0, 24)
+		saveBtn.BackgroundTransparency = 1
+		saveBtn.Text = '[ ] Remember key on this PC'
+		saveBtn.TextXAlignment = Enum.TextXAlignment.Left
+		saveBtn.TextColor3 = Color3.fromRGB(150, 160, 170)
+		saveBtn.Font = Enum.Font.GothamBold
+		saveBtn.TextSize = 12
+		saveBtn.Parent = frame
+		saveBtn.MouseButton1Click:Connect(function()
+			saveBox = not saveBox
+			saveBtn.Text = (saveBox and '[X] ' or '[ ] ') .. 'Remember key on this PC'
+			saveBtn.TextColor3 = saveBox and Color3.fromRGB(0, 255, 170) or Color3.fromRGB(150, 160, 170)
+		end)
 		local foot = Instance.new('TextLabel')
-		foot.Position = UDim2.new(0, 20, 1, -52)
+		foot.Position = UDim2.new(0, 20, 1, -46)
 		foot.Size = UDim2.new(1, -40, 0, 40)
 		foot.BackgroundTransparency = 1
 		foot.Text = 'Key is verified online with your HWID.\nIt is saved locally after approval.'
@@ -392,6 +409,7 @@ do
 				if done then return end
 				if ok then
 					verifiedKey = k
+					saveKeyChoice = saveBox
 					result = k
 					setStatus('key accepted', true)
 					task.wait(0.4)
@@ -438,8 +456,12 @@ do
 		shared.ReaperKeyInfo = info
 	end
 	pcall(function()
-		if not isfolder('aetherv2/profiles') then makefolder('aetherv2/profiles') end
-		writefile(KEY_FILE, key)
+		if saveKeyChoice then
+			if not isfolder('aetherv2/profiles') then makefolder('aetherv2/profiles') end
+			writefile(KEY_FILE, key)
+		elseif delfile then
+			pcall(delfile, KEY_FILE)
+		end
 	end)
 end
 

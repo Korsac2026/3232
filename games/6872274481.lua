@@ -37604,6 +37604,8 @@ run(function()
 	local FallSpeed
 	local Notify
 	local Debug
+	local LimitItems
+	local AutoProtect
 
 	local clutchParams = RaycastParams.new()
 	clutchParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -37615,6 +37617,9 @@ run(function()
 	}
 
 	local function getClutchBlock()
+		if LimitItems.Enabled and store.hand.toolType ~= 'block' then
+			return nil, 0
+		end
 		if store.hand.toolType == 'block' then
 			return store.hand.tool.Name, store.hand.amount
 		end
@@ -37638,6 +37643,19 @@ run(function()
 			end
 		end
 		return false
+	end
+
+	local function protectAbove(woolItem)
+		if not AutoProtect.Enabled then return end
+		Clutch:Delay(0.05, function()
+			if not entitylib.isAlive then return end
+			local rootNow = entitylib.character.RootPart
+			local over = roundPos(rootNow.Position + Vector3.new(0, 4.5, 0))
+			local oblock, obp = getPlacedBlock(over)
+			if not oblock and hasSupport(over) then
+				bedwars.placeBlock(obp * 3, woolItem)
+			end
+		end)
 	end
 
 	Clutch = vape.Categories.Utility:CreateModule({
@@ -37672,6 +37690,7 @@ run(function()
 										if not blockNow and hasSupport(roundPos(feetNow)) then
 											placedThisFall += 1
 											Clutch:Delay(0, function() bedwars.placeBlock(blockposNow * 3, wool2) end)
+											protectAbove(wool2)
 											if Notify.Enabled then
 												notif('Clutch', 'Bloque de clutch colocado', 2)
 											end
@@ -37701,9 +37720,10 @@ run(function()
 											local block, blockpos = getPlacedBlock(worldPos)
 											if not block then
 												if hasSupport(worldPos) then
-													placedThisFall += 1
-													placed = true
-													Clutch:Delay(0, function() bedwars.placeBlock(blockpos * 3, wool) end)
+												placedThisFall += 1
+												placed = true
+												Clutch:Delay(0, function() bedwars.placeBlock(blockpos * 3, wool) end)
+												protectAbove(wool)
 													if Notify.Enabled then
 														notif('Clutch', 'Bloque de clutch colocado', 2)
 													end
@@ -37752,6 +37772,8 @@ run(function()
 	FallSpeed = Clutch:CreateSlider({Name = 'Fall speed', Min = 10, Max = 60, Default = 25, Tooltip = 'Velocidad de caida minima para activar el clutch'})
 	Notify = Clutch:CreateToggle({Name = 'Notify', Default = true, Tooltip = 'Avisa cuando coloca el bloque'})
 	Debug = Clutch:CreateToggle({Name = 'Debug', Default = true, Tooltip = 'Muestra mensajes de depuración del clutch'})
+	LimitItems = Clutch:CreateToggle({Name = 'Limit to items', Default = false, Tooltip = 'Solo hace clutch si llevas bloques en la mano'})
+	AutoProtect = Clutch:CreateToggle({Name = 'Auto protect', Default = false, Tooltip = 'Pone un bloque arriba tuyo al hacer clutch'})
 end)
 
 run(function()

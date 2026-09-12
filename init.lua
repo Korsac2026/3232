@@ -214,7 +214,9 @@ do
 		return false, lastErr
 	end
 
-	local function promptKey()
+	local verifiedKey = nil
+
+	local function promptKey(hwid, verifyFn)
 		local provided = nil
 		if type(license.key) == 'string' and license.key ~= '' then provided = license.key end
 		if not provided and type(license.Key) == 'string' and license.Key ~= '' then provided = license.Key end
@@ -240,77 +242,190 @@ do
 		end
 		local done = false
 		local result = nil
+		local verifying = false
 		local screen = Instance.new('ScreenGui')
 		screen.Name = 'ReaperKeyAuth'
 		screen.ResetOnSpawn = false
 		screen.DisplayOrder = 2147483647
+		screen.IgnoreGuiInset = true
 		screen.Parent = parent
 		local frame = Instance.new('Frame')
 		frame.AnchorPoint = Vector2.new(0.5, 0.5)
 		frame.Position = UDim2.fromScale(0.5, 0.5)
-		frame.Size = UDim2.fromOffset(340, 170)
+		frame.Size = UDim2.fromOffset(440, 330)
 		frame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
 		frame.BorderSizePixel = 0
 		frame.Parent = screen
 		local corner = Instance.new('UICorner')
-		corner.CornerRadius = UDim.new(0, 8)
+		corner.CornerRadius = UDim.new(0, 10)
 		corner.Parent = frame
+		local accent = Instance.new('Frame')
+		accent.Size = UDim2.new(1, 0, 0, 3)
+		accent.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+		accent.BorderSizePixel = 0
+		accent.Parent = frame
 		local title = Instance.new('TextLabel')
-		title.Size = UDim2.new(1, 0, 0, 40)
+		title.Position = UDim2.fromOffset(0, 12)
+		title.Size = UDim2.new(1, 0, 0, 26)
 		title.BackgroundTransparency = 1
-		title.Text = 'REAPER // ENTER KEY'
+		title.Text = 'REAPER KEY SYSTEM'
 		title.TextColor3 = Color3.fromRGB(0, 255, 170)
 		title.Font = Enum.Font.GothamBold
-		title.TextSize = 16
+		title.TextSize = 18
 		title.Parent = frame
+		local subtitle = Instance.new('TextLabel')
+		subtitle.Position = UDim2.fromOffset(0, 36)
+		subtitle.Size = UDim2.new(1, 0, 0, 16)
+		subtitle.BackgroundTransparency = 1
+		subtitle.Text = 'reaper-pryd.onrender.com'
+		subtitle.TextColor3 = Color3.fromRGB(120, 130, 140)
+		subtitle.Font = Enum.Font.Code
+		subtitle.TextSize = 12
+		subtitle.Parent = frame
+		local hwidTitle = Instance.new('TextLabel')
+		hwidTitle.Position = UDim2.fromOffset(20, 60)
+		hwidTitle.Size = UDim2.new(1, -40, 0, 16)
+		hwidTitle.BackgroundTransparency = 1
+		hwidTitle.Text = 'YOUR HWID (binds to your key)'
+		hwidTitle.TextXAlignment = Enum.TextXAlignment.Left
+		hwidTitle.TextColor3 = Color3.fromRGB(150, 160, 170)
+		hwidTitle.Font = Enum.Font.GothamBold
+		hwidTitle.TextSize = 11
+		hwidTitle.Parent = frame
+		local hwidBox = Instance.new('TextBox')
+		hwidBox.Position = UDim2.fromOffset(20, 78)
+		hwidBox.Size = UDim2.new(1, -110, 0, 32)
+		hwidBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		hwidBox.BorderSizePixel = 0
+		hwidBox.Text = tostring(hwid or '')
+		hwidBox.TextXAlignment = Enum.TextXAlignment.Left
+		hwidBox.TextTruncate = Enum.TextTruncate.AtEnd
+		hwidBox.TextEditable = false
+		hwidBox.ClearTextOnFocus = false
+		hwidBox.TextColor3 = Color3.fromRGB(200, 210, 220)
+		hwidBox.Font = Enum.Font.Code
+		hwidBox.TextSize = 12
+		hwidBox.Parent = frame
+		local copyBtn = Instance.new('TextButton')
+		copyBtn.Position = UDim2.new(1, -80, 0, 78)
+		copyBtn.Size = UDim2.fromOffset(60, 32)
+		copyBtn.BackgroundColor3 = Color3.fromRGB(20, 26, 32)
+		copyBtn.BorderSizePixel = 0
+		copyBtn.Text = 'COPY'
+		copyBtn.TextColor3 = Color3.fromRGB(0, 255, 170)
+		copyBtn.Font = Enum.Font.GothamBold
+		copyBtn.TextSize = 12
+		copyBtn.Parent = frame
 		local box = Instance.new('TextBox')
-		box.Position = UDim2.fromOffset(20, 55)
-		box.Size = UDim2.new(1, -40, 0, 40)
+		box.Position = UDim2.fromOffset(20, 122)
+		box.Size = UDim2.new(1, -40, 0, 42)
 		box.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		box.BorderSizePixel = 0
 		box.TextColor3 = Color3.fromRGB(255, 255, 255)
 		box.PlaceholderText = 'REAPER-XXXX-XXXX'
+		box.PlaceholderColor3 = Color3.fromRGB(90, 100, 110)
 		box.Text = ''
 		box.Font = Enum.Font.Code
 		box.TextSize = 14
+		box.ClearTextOnFocus = false
 		box.Parent = frame
-		local errLabel = Instance.new('TextLabel')
-		errLabel.Position = UDim2.fromOffset(20, 100)
-		errLabel.Size = UDim2.new(1, -40, 0, 20)
-		errLabel.BackgroundTransparency = 1
-		errLabel.Text = ''
-		errLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
-		errLabel.Font = Enum.Font.Code
-		errLabel.TextSize = 12
-		errLabel.Parent = frame
+		local status = Instance.new('TextLabel')
+		status.Position = UDim2.fromOffset(20, 168)
+		status.Size = UDim2.new(1, -40, 0, 20)
+		status.BackgroundTransparency = 1
+		status.Text = ''
+		status.Font = Enum.Font.Code
+		status.TextSize = 12
+		status.Parent = frame
+		local function setStatus(msg, ok)
+			status.Text = msg or ''
+			status.TextColor3 = ok and Color3.fromRGB(0, 255, 170) or Color3.fromRGB(255, 60, 60)
+		end
 		local btn = Instance.new('TextButton')
-		btn.Position = UDim2.fromOffset(20, 125)
-		btn.Size = UDim2.new(1, -40, 0, 32)
+		btn.Position = UDim2.fromOffset(20, 196)
+		btn.Size = UDim2.new(1, -40, 0, 38)
 		btn.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+		btn.BorderSizePixel = 0
 		btn.Text = 'AUTHORIZE'
 		btn.TextColor3 = Color3.fromRGB(0, 0, 0)
 		btn.Font = Enum.Font.GothamBold
-		btn.TextSize = 14
+		btn.TextSize = 15
+		btn.AutoButtonColor = true
 		btn.Parent = frame
-		btn.MouseButton1Click:Connect(function()
-			if box.Text:gsub('%s+', '') ~= '' then
-				result = box.Text:gsub('%s+', '')
-				done = true
-			else
-				errLabel.Text = 'enter a key'
-			end
+		local foot = Instance.new('TextLabel')
+		foot.Position = UDim2.new(0, 20, 1, -52)
+		foot.Size = UDim2.new(1, -40, 0, 40)
+		foot.BackgroundTransparency = 1
+		foot.Text = 'Key is verified online with your HWID.\nIt is saved locally after approval.'
+		foot.TextColor3 = Color3.fromRGB(100, 110, 120)
+		foot.Font = Enum.Font.Code
+		foot.TextSize = 11
+		foot.Parent = frame
+		copyBtn.MouseButton1Click:Connect(function()
+			pcall(function()
+				if setclipboard then
+					setclipboard(tostring(hwid or ''))
+				elseif toclipboard then
+					toclipboard(tostring(hwid or ''))
+				end
+			end)
+			setStatus('hwid copied', true)
 		end)
+		local function submit()
+			if verifying or done then return end
+			local k = box.Text:gsub('%s+', '')
+			if k == '' then
+				setStatus('enter a key')
+				return
+			end
+			if type(verifyFn) ~= 'function' then
+				result = k
+				done = true
+				return
+			end
+			verifying = true
+			btn.Text = 'VERIFYING...'
+			btn.AutoButtonColor = false
+			setStatus('verifying with reaper-pryd.onrender.com...', true)
+			task.spawn(function()
+				local ok, info = verifyFn(k, hwid)
+				if done then return end
+				if ok then
+					verifiedKey = k
+					result = k
+					setStatus('key accepted', true)
+					task.wait(0.4)
+					done = true
+				else
+					setStatus(type(info) == 'string' and info or 'key rejected')
+					btn.Text = 'AUTHORIZE'
+					btn.AutoButtonColor = true
+					verifying = false
+				end
+			end)
+		end
+		btn.MouseButton1Click:Connect(submit)
+		box.FocusLost:Connect(function(enter)
+			if enter then submit() end
+		end)
+		box:CaptureFocus()
 		repeat task.wait() until done
 		pcall(function() screen:Destroy() end)
 		return result
 	end
 
 	local hwid = getHwid()
-	local key = promptKey()
+	local key = promptKey(hwid, verifyKey)
 	if type(key) ~= 'string' or key == '' then
 		shared.ReaperLoadingAt = nil
 		error('[REAPER] No key entered', 0)
 	end
-	local valid, info = verifyKey(key, hwid)
+	local valid, info
+	if key == verifiedKey then
+		valid, info = true, {cached = true}
+	else
+		valid, info = verifyKey(key, hwid)
+	end
 	if not valid then
 		local reason = type(info) == 'string' and info or 'key rejected'
 		shared.ReaperLoadingAt = nil

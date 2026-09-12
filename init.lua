@@ -278,7 +278,7 @@ do
 		subtitle.Position = UDim2.fromOffset(0, 36)
 		subtitle.Size = UDim2.new(1, 0, 0, 16)
 		subtitle.BackgroundTransparency = 1
-		subtitle.Text = 'reaper-pryd.onrender.com'
+		subtitle.Text = 'SECURE VERIFICATION'
 		subtitle.TextColor3 = Color3.fromRGB(120, 130, 140)
 		subtitle.Font = Enum.Font.Code
 		subtitle.TextSize = 12
@@ -403,7 +403,7 @@ do
 			verifying = true
 			btn.Text = 'VERIFYING...'
 			btn.AutoButtonColor = false
-			setStatus('verifying with reaper-pryd.onrender.com...', true)
+			setStatus('verifying...', true)
 			task.spawn(function()
 				local ok, info = verifyFn(k, hwid)
 				if done then return end

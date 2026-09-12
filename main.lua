@@ -79,11 +79,10 @@ end
 
 local function downloadFile(path, func)
 	local rel = relativePath(path)
-	-- Los archivos de juego y el universal cambian seguido: siempre frescos
-	-- desde GitHub (no dependen de la API de GitHub ni del cache)
-	local alwaysFresh = rel:sub(1, 6) == 'games/' or rel == 'games/universal.lua'
+	-- cache.lua ya sincroniza los archivos cambiados antes de llegar aquí,
+	-- así que los locales usables se reutilizan para carga instantánea
 	local usable = fileIsUsable(path)
-	if usable and not alwaysFresh then
+	if usable then
 		return (func or readfile)(path)
 	end
 	local suc, res = pcall(function()

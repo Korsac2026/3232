@@ -14677,11 +14677,18 @@ run(function()
 end)
 
 run(function()
-	local runtime = shared.AetherShopRuntime
-
-	local OpenShop
+	local Shop
 	local QuickBuy
 	local buying = false
+
+	local function getShopApp()
+		local rep = game:GetService('ReplicatedStorage')
+		local lps = game:GetService('Players').LocalPlayer:WaitForChild('PlayerScripts')
+		local Flamework = require(rep.rbxts_include.node_modules['@flamework'].core.out).Flamework
+		local AppController = Flamework.resolveDependency('@easy-games/game-core:client/controllers/app-controller@AppController')
+		local appIds = require(lps.TS.ui.types['app-config'])
+		return AppController, appIds.BedwarsAppIds.BEDWARS_ITEM_SHOP
+	end
 
 	local function instantBuy(itemType)
 		if buying then return end
@@ -14689,24 +14696,25 @@ run(function()
 		buying = true
 		task.spawn(function()
 			local ok = pcall(function()
+				local runtime = shared.AetherShopRuntime
 				if not runtime then
-					notif('OpenShop', 'Shop runtime unavailable', 4, 'alert')
+					notif('Shop', 'Shop runtime unavailable', 4, 'alert')
 					return
 				end
 				local entry = runtime.nearestItemShop()
 				if not entry then
-					notif('OpenShop', 'Shop not found', 4, 'alert')
+					notif('Shop', 'Shop not found', 4, 'alert')
 					return
 				end
 				runtime.activateShop(entry)
 				local shopId = entry.Shop and entry.Id or nil
 				if not shopId then
-					notif('OpenShop', 'Invalid shop', 4, 'alert')
+					notif('Shop', 'Invalid shop', 4, 'alert')
 					return
 				end
 				local item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
 				if not item then
-					notif('OpenShop', 'Item not available', 4, 'alert')
+					notif('Shop', 'Item not available', 4, 'alert')
 					return
 				end
 				bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
@@ -14715,25 +14723,34 @@ run(function()
 				})
 			end)
 			if not ok then
-				notif('OpenShop', 'Quick buy error', 4, 'alert')
+				notif('Shop', 'Quick buy error', 4, 'alert')
 			end
 			buying = false
 		end)
 	end
 
-	OpenShop = vape.Categories.Inventory:CreateModule({
-		Name = 'OpenShop',
+	Shop = vape.Categories.Utility:CreateModule({
+		Name = 'Shop',
 		Function = function(callback)
-			runtime.activateShop(runtime.nearestItemShop())
-
-			task.defer(function()
-				OpenShop:Toggle()
-			end)
+			if callback then
+				local ok = pcall(function()
+					local AppController, shopId = getShopApp()
+					AppController:openApp(shopId, {shopId = nil, IsHomeBase = true})
+				end)
+				if not ok then
+					notif('Shop', 'Could not open the shop', 4, 'alert')
+				end
+			else
+				pcall(function()
+					local AppController, shopId = getShopApp()
+					AppController:closeApp(shopId)
+				end)
+			end
 		end,
-		Tooltip = 'Opens the nearest item shop'
+		Tooltip = 'Opens the item shop from anywhere.'
 	})
-	QuickBuy = OpenShop:CreateDropdown({Name = 'Quick buy item', List = {'wool_white', 'stone_sword', 'iron_sword', 'wood_sword', 'wood_pickaxe', 'arrow', 'diamond_sword'}, Tooltip = 'Item to buy instantly at the nearest shop'})
-	OpenShop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Buys the selected item instantly'})
+	QuickBuy = Shop:CreateDropdown({Name = 'Quick buy item', List = {'wool_white', 'stone_sword', 'iron_sword', 'wood_sword', 'wood_pickaxe', 'arrow', 'diamond_sword'}, Tooltip = 'Item to buy instantly at the nearest shop'})
+	Shop:CreateButton({Name = 'Buy now', Function = function() instantBuy(QuickBuy.Value) end, Tooltip = 'Buys the selected item instantly'})
 end)
 
 run(function()
@@ -37716,7 +37733,9 @@ run(function()
 			if callback then
 				local placedThisFall, notifiedEmpty = 0, false
 				local wasGrounded = true
+				local fastPoll = false
 				repeat
+					fastPoll = false
 					if entitylib.isAlive then
 						local char = entitylib.character
 						local root = char.RootPart
@@ -37725,6 +37744,7 @@ run(function()
 						local flyOn = vape.Modules.Fly and vape.Modules.Fly.Enabled
 
 						if airborne and not flyOn then
+							fastPoll = true
 							local justLeft = wasGrounded
 							wasGrounded = false
 							clutchParams.FilterDescendantsInstances = {lplr.Character}
@@ -37795,7 +37815,7 @@ run(function()
 							placedThisFall, notifiedEmpty = 0, false
 						end
 					end
-					task.wait(0.05)
+					task.wait(fastPoll and 0.05 or 0.25)
 				until not Clutch.Enabled
 			end
 		end,

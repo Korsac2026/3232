@@ -37671,7 +37671,7 @@ run(function()
 										local blockNow, blockposNow = getPlacedBlock(roundPos(feetNow))
 										if not blockNow and hasSupport(roundPos(feetNow)) then
 											placedThisFall += 1
-											Clutch:Delay(0, function() bedwars.placeBlock(blockposNow, wool2) end)
+											Clutch:Delay(0, function() bedwars.placeBlock(blockposNow * 3, wool2) end)
 											if Notify.Enabled then
 												notif('Clutch', 'Bloque de clutch colocado', 2)
 											end
@@ -37703,7 +37703,7 @@ run(function()
 												if hasSupport(worldPos) then
 													placedThisFall += 1
 													placed = true
-													Clutch:Delay(0, function() bedwars.placeBlock(blockpos, wool) end)
+													Clutch:Delay(0, function() bedwars.placeBlock(blockpos * 3, wool) end)
 													if Notify.Enabled then
 														notif('Clutch', 'Bloque de clutch colocado', 2)
 													end

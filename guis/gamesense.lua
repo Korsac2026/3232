@@ -59,29 +59,27 @@ local function optionValue(opt, key)
 	return nil
 end
 
-local function renderTextList(sec, opt, key)
+local function renderTextList(sec, opt, key, kids)
 	if type(opt.List) ~= 'table' then return end
-	sec:Label({Message = key})
-	sec:TextBox({Name = key .. ' (add)', Default = '', Flag = 'aeth_list_' .. key,
+	table.insert(kids, sec:Label({Message = key}))
+	table.insert(kids, sec:TextBox({Name = key .. ' (add)', Default = '', Flag = 'aeth_list_' .. key,
 		CheckIfPressedEnter = true,
 		Callback = function(text)
 			local v = tostring(text or ''):gsub('%s+', '')
 			if v ~= '' then pcall(function() opt:ChangeValue(v) end) end
-		end})
-	local shown = {}
+		end}))
 	for _, v in ipairs(opt.List) do
 		local name = tostring(v)
-		shown[#shown + 1] = name
-		sec:Toggle({Name = name, Default = opt.ListEnabled and table.find(opt.ListEnabled, v) ~= nil,
+		table.insert(kids, sec:Toggle({Name = name, Default = opt.ListEnabled and table.find(opt.ListEnabled, v) ~= nil,
 			Flag = 'aeth_tl_' .. key .. '_' .. name,
 			Callback = function(st)
 				pcall(function() opt:ChangeValue(name) end)
-			end})
+			end}))
 	end
 end
 
-local function renderTargets(sec, opt, key)
-	sec:Label({Message = key or 'Targets'})
+local function renderTargets(sec, opt, key, kids)
+	table.insert(kids, sec:Label({Message = key or 'Targets'}))
 	for _, sub in ipairs({
 		{Key = 'Players', Label = 'Players'},
 		{Key = 'NPCs', Label = 'NPCs'},
@@ -90,13 +88,13 @@ local function renderTargets(sec, opt, key)
 	}) do
 		local so = opt[sub.Key]
 		if type(so) == 'table' then
-			sec:Toggle({Name = sub.Label, Default = so.Enabled == true,
+			table.insert(kids, sec:Toggle({Name = sub.Label, Default = so.Enabled == true,
 				Flag = 'aeth_tg_' .. key .. '_' .. sub.Key,
 				Callback = function(st)
 					if (so.Enabled == true) ~= (st == true) then
 						pcall(function() so:Toggle() end)
 					end
-				end})
+				end}))
 		end
 	end
 end
@@ -117,8 +115,9 @@ local function renderOption(sec, opt, key, kids)
 		local max = og.Max ~= nil and tonumber(og.Max) or (min + 1)
 		local val = tonumber(opt.Value) or min
 		if val < min then val = min elseif val > max then val = max end
+		local decimals = (og.Decimal == 100) and 2 or ((og.Decimal == 10) and 1 or 0)
 		table.insert(kids, sec:Slider({Name = name, Min = min, Max = max, Default = val,
-			Decimal = (val % 1 ~= 0 or min % 1 ~= 0 or max % 1 ~= 0) and 2 or 0,
+			Decimal = decimals,
 			Ending = tostring(og.Suffix or ''), Flag = 'aeth_' .. key,
 			Callback = function(v) pcall(function() opt:SetValue(v) end) end}))
 	elseif t == 'Dropdown' then
@@ -151,9 +150,9 @@ local function renderOption(sec, opt, key, kids)
 		end)
 		table.insert(kids, lab)
 	elseif t == 'TextList' then
-		renderTextList(sec, opt, key)
+		renderTextList(sec, opt, key, kids)
 	elseif t == 'Targets' then
-		renderTargets(sec, opt, key)
+		renderTargets(sec, opt, key, kids)
 	else
 		sec:Label({Message = name .. ' (n/a)'})
 	end

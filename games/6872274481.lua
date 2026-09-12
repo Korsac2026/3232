@@ -37603,6 +37603,7 @@ run(function()
 	local Clutch
 	local FallSpeed
 	local Notify
+	local Debug
 
 	local clutchParams = RaycastParams.new()
 	clutchParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -37643,7 +37644,7 @@ run(function()
 		Name = 'Clutch',
 		Function = function(callback)
 			if callback then
-				local placedThisFall, notifiedEmpty = 0, false
+				local placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
 				repeat
 					if entitylib.isAlive then
 						local char = entitylib.character
@@ -37657,18 +37658,27 @@ run(function()
 								clutchParams.FilterDescendantsInstances = {char}
 								local downHit = workspace:Raycast(root.Position, Vector3.new(0, -120, 0), clutchParams)
 								if not downHit then
+									if Debug.Enabled and not dbgTrigger then
+										dbgTrigger = true
+										notif('Clutch', 'Trigger OK: cayendo al vacio', 2)
+									end
 									local wool, amount = getClutchBlock()
 									if wool and (amount or 0) > 0 and placedThisFall < 4 then
 										local placed = false
 										local function tryPlace(worldPos)
 											if placed then return true end
 											local block, blockpos = getPlacedBlock(worldPos)
-											if not block and hasSupport(worldPos) then
-												placedThisFall += 1
-												placed = true
-												Clutch:Delay(0, function() bedwars.placeBlock(blockpos, wool) end)
-												if Notify.Enabled then
-													notif('Clutch', 'Bloque de clutch colocado', 2)
+											if not block then
+												if hasSupport(worldPos) then
+													placedThisFall += 1
+													placed = true
+													Clutch:Delay(0, function() bedwars.placeBlock(blockpos, wool) end)
+													if Notify.Enabled then
+														notif('Clutch', 'Bloque de clutch colocado', 2)
+													end
+												elseif Debug.Enabled and not dbgSupport then
+													dbgSupport = true
+													notif('Clutch', 'Sin soporte cerca para el bloque', 2)
 												end
 											end
 											return placed
@@ -37698,7 +37708,7 @@ run(function()
 								end
 							end
 						else
-							placedThisFall, notifiedEmpty = 0, false
+							placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
 						end
 					end
 					task.wait(0.05)
@@ -37709,6 +37719,7 @@ run(function()
 	})
 	FallSpeed = Clutch:CreateSlider({Name = 'Fall speed', Min = 10, Max = 60, Default = 25, Tooltip = 'Velocidad de caida minima para activar el clutch'})
 	Notify = Clutch:CreateToggle({Name = 'Notify', Default = true, Tooltip = 'Avisa cuando coloca el bloque'})
+	Debug = Clutch:CreateToggle({Name = 'Debug', Default = true, Tooltip = 'Muestra mensajes de depuración del clutch'})
 end)
 
 run(function()

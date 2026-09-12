@@ -609,7 +609,7 @@ end
 local function wfetchUpdates()
 	local updates = {}
 	local ok, body = pcall(function()
-		return game:HttpGet('https://api.github.com/repos/Korsac2026/3232/commits?per_page=5', true)
+		return game:HttpGet('https://api.github.com/repos/Korsac2026/3232/commits?per_page=10', true)
 	end)
 	if ok and type(body) == 'string' then
 		local dok, data = pcall(function()
@@ -617,14 +617,17 @@ local function wfetchUpdates()
 		end)
 		if dok and type(data) == 'table' then
 			for _, c in ipairs(data) do
+				if #updates >= 5 then break end
 				if type(c) == 'table' and type(c.commit) == 'table' then
 					local msg = tostring(c.commit.message or ''):gsub('\n.*', '')
-					if #msg > 54 then msg = msg:sub(1, 51) .. '...' end
-					local date = ''
-					pcall(function()
-						date = (c.commit.committer and c.commit.committer.date) or (c.commit.author and c.commit.author.date) or ''
-					end)
-					table.insert(updates, {msg = msg, date = tostring(date)})
+					if not msg:lower():find('texts in english', 1, true) then
+						if #msg > 54 then msg = msg:sub(1, 51) .. '...' end
+						local date = ''
+						pcall(function()
+							date = (c.commit.committer and c.commit.committer.date) or (c.commit.author and c.commit.author.date) or ''
+						end)
+						table.insert(updates, {msg = msg, date = tostring(date)})
+					end
 				end
 			end
 		end

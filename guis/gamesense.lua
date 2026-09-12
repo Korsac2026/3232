@@ -29,18 +29,81 @@ end
 
 local Window = GS:Window({Name = 'aether', CloseBind = Enum.KeyCode.Insert})
 
-local function renderOption(sec, opt, flag, kids)
+local function renderTextList(sec, opt, flag)
+	sec:Label({Message = tostring(opt.Name or 'List')})
+	local shown = {}
+	local listCtl = nil
+	local function refresh()
+		if not listCtl then return end
+		for _, v in ipairs(shown) do
+			pcall(function() listCtl:RemoveValue(v) end)
+		end
+		shown = {}
+		if type(opt.List) == 'table' then
+			for _, v in ipairs(opt.List) do
+				local s = tostring(v)
+				local ok = pcall(function() listCtl:AddValue(s) end)
+				if ok then table.insert(shown, s) end
+			end
+		end
+	end
+	local ok, ctl = pcall(function()
+		return sec:List({Size = 110, Flag = flag, Callback = function(value)
+			if value ~= nil then
+				pcall(function() opt:ChangeValue(tostring(value)) end)
+				refresh()
+			end
+		end})
+	end)
+	if not (ok and ctl) then return end
+	listCtl = ctl
+	refresh()
+	pcall(function()
+		sec:TextBox({Name = 'Add entry', Default = '', CheckIfPressedEnter = true, Flag = flag .. '_add',
+			Callback = function(text)
+				local s = tostring(text or ''):gsub('%s+', '')
+				if s ~= '' then
+					pcall(function() opt:ChangeValue(s) end)
+					refresh()
+				end
+			end})
+	end)
+end
+
+local function renderTargets(sec, opt, flag)
+	sec:Label({Message = tostring(opt.Name or 'Targets')})
+	for _, sub in ipairs({
+		{Key = 'Players', Label = 'Target players'},
+		{Key = 'NPCs', Label = 'Target NPCs'},
+		{Key = 'Invisible', Label = 'Ignore invisible'},
+		{Key = 'Walls', Label = 'Ignore behind walls'},
+	}) do
+		local so = opt[sub.Key]
+		if type(so) == 'table' then
+			pcall(function()
+				sec:Toggle({Name = sub.Label, Default = so.Enabled == true, Flag = flag .. '_' .. sub.Key,
+					Callback = function(s)
+						local want = s and true or false
+						if want ~= (so.Enabled and true or false) then
+							pcall(function() so:Toggle() end)
+						end
+					end})
+			end)
+		end
+	end
+end
+
+local function renderOption(sec, opt, flag)
 	local t = tostring(opt.Type or '')
 	local name = tostring(opt.Name or 'Option')
 	if t == 'Toggle' then
-		local c = sec:Toggle({Name = name, Hidden = true, Default = opt.Enabled == true, Flag = flag,
+		sec:Toggle({Name = name, Default = opt.Enabled == true, Flag = flag,
 			Callback = function(s)
 				local want = s and true or false
 				if want ~= (opt.Enabled and true or false) then
 					pcall(function() opt:Toggle() end)
 				end
 			end})
-		table.insert(kids, c)
 	elseif t == 'Slider' then
 		local min = tonumber(opt.Min) or 0
 		local max = tonumber(opt.Max) or 100
@@ -48,38 +111,33 @@ local function renderOption(sec, opt, flag, kids)
 		local val = tonumber(opt.Value) or min
 		if val < min then val = min elseif val > max then val = max end
 		local dec = ((val % 1 ~= 0) or (min % 1 ~= 0) or (max % 1 ~= 0)) and 2 or 0
-		local c = sec:Slider({Name = name, Hidden = true, Min = min, Max = max, Default = val, Decimal = dec,
+		sec:Slider({Name = name, Min = min, Max = max, Default = val, Decimal = dec,
 			Ending = tostring(opt.Suffix or ''), Flag = flag,
 			Callback = function(v)
 				pcall(function() opt:SetValue(v) end)
 			end})
-		table.insert(kids, c)
 	elseif t == 'Dropdown' then
 		local list = (type(opt.List) == 'table' and #opt.List > 0) and opt.List or {'None'}
-		local c = sec:Dropdown({Name = name, Hidden = true, Content = list, Default = opt.Value, Flag = flag,
+		sec:Dropdown({Name = name, Content = list, Default = opt.Value, Flag = flag,
 			Callback = function(v)
 				pcall(function() opt:SetValue(v) end)
 			end})
-		table.insert(kids, c)
 	elseif t == 'TextBox' then
-		local c = sec:TextBox({Name = name, Hidden = true, Default = tostring(opt.Value or ''), Flag = flag,
+		sec:TextBox({Name = name, Default = tostring(opt.Value or ''), Flag = flag,
 			Callback = function(v)
 				pcall(function() opt:SetValue(v) end)
 			end})
-		table.insert(kids, c)
 	elseif t == 'Button' then
 		local fn = opt.Function
-		local c = sec:Button({Name = name, Hidden = true,
+		sec:Button({Name = name,
 			Callback = function()
 				if type(fn) == 'function' then pcall(fn) end
 			end})
-		table.insert(kids, c)
 	elseif t == 'ColorSlider' then
 		local col = (typeof(opt.Value) == 'Color3') and opt.Value or Color3.new(1, 1, 1)
-		local lab = sec:Label({Message = name, Hidden = true})
-		table.insert(kids, lab)
-		local ok, pick = pcall(function()
-			return lab:ColorPicker({Default = col, Flag = flag,
+		local lab = sec:Label({Message = name})
+		pcall(function()
+			lab:ColorPicker({Default = col, Flag = flag,
 				Callback = function(c)
 					local h, s, v = c:ToHSV()
 					pcall(function()
@@ -87,22 +145,17 @@ local function renderOption(sec, opt, flag, kids)
 					end)
 				end})
 		end)
-		if ok and pick ~= nil then table.insert(kids, pick) end
+	elseif t == 'TextList' then
+		renderTextList(sec, opt, flag)
+	elseif t == 'Targets' then
+		renderTargets(sec, opt, flag)
 	else
-		local lab = sec:Label({Message = name .. ' (n/a)', Hidden = true})
-		table.insert(kids, lab)
+		sec:Label({Message = name .. ' (n/a)'})
 	end
 end
 
 local function renderModule(sec, mod, tag)
 	local flag = 'aeth_' .. tag .. '_' .. tostring(mod.Name)
-	local kids = {}
-	local function syncKids()
-		local on = modOn(mod)
-		for _, k in ipairs(kids) do
-			pcall(function() k:SetVisible(on) end)
-		end
-	end
 	local ok, t = pcall(function()
 		return sec:Toggle({Name = disp(mod), Default = modOn(mod), Flag = flag,
 			Callback = function(s)
@@ -110,7 +163,6 @@ local function renderModule(sec, mod, tag)
 				if want ~= modOn(mod) then
 					pcall(function() mod:Toggle() end)
 				end
-				syncKids()
 			end})
 	end)
 	if not (ok and t) then return end
@@ -121,10 +173,10 @@ local function renderModule(sec, mod, tag)
 		for _, n in ipairs(names) do
 			local opt = mod.Options[n]
 			if type(opt) == 'table' then
-				local rok = pcall(renderOption, sec, opt, flag .. '_' .. tostring(n), kids)
+				local rok = pcall(renderOption, sec, opt, flag .. '_' .. tostring(n))
 				if not rok then
 					pcall(function()
-						table.insert(kids, sec:Label({Message = tostring(n) .. ' (n/a)', Hidden = true}))
+						sec:Label({Message = tostring(n) .. ' (n/a)'})
 					end)
 				end
 			end
@@ -141,7 +193,6 @@ local function renderModule(sec, mod, tag)
 		t:Keybind({Default = def, Mode = 'Toggle', UseMode = true, ChangeToggle = true,
 			Flag = flag .. '_key', Callback = function() end})
 	end)
-	syncKids()
 end
 
 local function renderList(tab, mods, tag)
@@ -150,7 +201,7 @@ local function renderList(tab, mods, tag)
 	local right = tab:Section({Name = tag .. ' 2', Side = 'Right', Fill = true})
 	local sides = {left, right}
 	for i, mod in ipairs(mods) do
-		renderModule(sides[((i - 1) % 2) + 1], mod, tag)
+		pcall(renderModule, sides[((i - 1) % 2) + 1], mod, tag)
 	end
 end
 

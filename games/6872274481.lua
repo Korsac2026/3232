@@ -37645,6 +37645,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
+				local wasGrounded = true
 				repeat
 					if entitylib.isAlive then
 						local char = entitylib.character
@@ -37654,6 +37655,36 @@ run(function()
 						local flyOn = vape.Modules.Fly and vape.Modules.Fly.Enabled
 
 						if airborne and not flyOn then
+							local justLeft = wasGrounded
+							wasGrounded = false
+							clutchParams.FilterDescendantsInstances = {char}
+							if justLeft and root.Velocity.Y <= 2 then
+								local downNear = workspace:Raycast(root.Position, Vector3.new(0, -18, 0), clutchParams)
+								if not downNear then
+									if Debug.Enabled and not dbgTrigger then
+										dbgTrigger = true
+										notif('Clutch', 'Trigger OK: borde', 2)
+									end
+									local wool2, amount2 = getClutchBlock()
+									if wool2 and (amount2 or 0) > 0 and placedThisFall < 4 then
+										local feetNow = root.Position - Vector3.new(0, char.HipHeight + 1.5, 0)
+										local blockNow, blockposNow = getPlacedBlock(roundPos(feetNow))
+										if not blockNow and hasSupport(roundPos(feetNow)) then
+											placedThisFall += 1
+											Clutch:Delay(0, function() bedwars.placeBlock(blockposNow, wool2) end)
+											if Notify.Enabled then
+												notif('Clutch', 'Bloque de clutch colocado', 2)
+											end
+										elseif Debug.Enabled and not dbgSupport then
+											dbgSupport = true
+											notif('Clutch', 'Sin soporte cerca para el bloque', 2)
+										end
+									elseif not wool2 and not notifiedEmpty then
+										notifiedEmpty = true
+										notif('Clutch', 'Sin bloques para clutch', 4, 'alert')
+									end
+								end
+							end
 							if root.Velocity.Y < -FallSpeed.Value then
 								clutchParams.FilterDescendantsInstances = {char}
 								local downHit = workspace:Raycast(root.Position, Vector3.new(0, -120, 0), clutchParams)
@@ -37708,6 +37739,7 @@ run(function()
 								end
 							end
 						else
+							wasGrounded = true
 							placedThisFall, notifiedEmpty, dbgTrigger, dbgSupport = 0, false, false, false
 						end
 					end

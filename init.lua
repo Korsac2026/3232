@@ -239,14 +239,6 @@ do
 				if type(g.ReaperKey) == 'string' and g.ReaperKey ~= '' then provided = g.ReaperKey end
 			end)
 		end
-		if not provided then
-			pcall(function()
-				local saved = readfile(KEY_FILE)
-				if type(saved) == 'string' and saved:gsub('%s+', '') ~= '' then
-					provided = saved:gsub('%s+', '')
-				end
-			end)
-		end
 		if provided then return provided end
 		local parent = loadingParent()
 		if not parent then
@@ -444,10 +436,30 @@ do
 	end
 
 	local hwid = getHwid()
-	local key = promptKey(hwid, verifyKey)
-	if type(key) ~= 'string' or key == '' then
-		shared.ReaperLoadingAt = nil
-		error('[REAPER] No key entered', 0)
+	-- First: try a saved key silently (no GUI). Find it locally and validate it online.
+	local savedKey
+	pcall(function() savedKey = readfile(KEY_FILE) end)
+	if type(savedKey) == 'string' then
+		savedKey = savedKey:gsub('%s+', '')
+		if savedKey == '' then savedKey = nil end
+	else
+		savedKey = nil
+	end
+	local key = nil
+	if type(savedKey) == 'string' then
+		local okv = select(1, verifyKey(savedKey, hwid))
+		if okv == true then
+			key = savedKey
+		end
+	end
+	-- If no usable saved key, open the prompt GUI.
+	if not key then
+		local result = promptKey(hwid, verifyKey)
+		if type(result) ~= 'string' or result == '' then
+			shared.ReaperLoadingAt = nil
+			error('[REAPER] No key entered', 0)
+		end
+		key = result
 	end
 	local valid, info
 	if key == verifiedKey then
@@ -458,7 +470,9 @@ do
 	if not valid then
 		local reason = type(info) == 'string' and info or 'key rejected'
 		shared.ReaperLoadingAt = nil
-		error('[REAPER] key rejected: ' .. tostring(reason), 0)
+		-- Wipe the bad saved key so the next run re-prompts cleanly.
+		pcall(function() if delfile then delfile(KEY_FILE) end end)
+		error('[REAPER] key rejected: ' .. reason, 0)
 	end
 	shared.ReaperKey = key
 	shared.ReaperHwid = hwid
@@ -466,13 +480,10 @@ do
 	if type(info) == 'table' then
 		shared.ReaperKeyInfo = info
 	end
+	-- Save the key robustly: parent folder first, then writefile, each isolated.
 	pcall(function()
-		if saveKeyChoice then
-			if not isfolder('aetherv2/profiles') then makefolder('aetherv2/profiles') end
-			writefile(KEY_FILE, key)
-		elseif delfile then
-			pcall(delfile, KEY_FILE)
-		end
+		if not isfolder('aetherv2/profiles') then pcall(makefolder, 'aetherv2/profiles') end
+		pcall(writefile, KEY_FILE, key)
 	end)
 end
 

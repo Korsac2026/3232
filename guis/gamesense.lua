@@ -227,8 +227,8 @@ for _, entry in ipairs(CATEGORY_TABS) do
 	end)
 end
 
--- Panels tab: open the original Legit / Kits windows (each panel module
--- carries its window frame in .Panel).
+-- Legit / Kits are opened from two clickable icons pinned to the top-center
+-- of the screen (one per panel), outside the window so they always stay reachable.
 local function panelWindow(panel)
 	if type(panel) ~= 'table' then return nil end
 	if typeof(panel.Panel) == 'Instance' then return panel.Panel end
@@ -241,30 +241,68 @@ local function panelWindow(panel)
 	end
 	return nil
 end
-do
+
+local function createPanelButton(api, iconId, label, xOffset)
+	local win = panelWindow(api)
+	if not win then return nil end
+	local host = GS.UI.ScreenGUI or (gethui and gethui())
+	if not host then return nil end
+	local holder = Instance.new('Frame')
+	holder.Size = UDim2.new(0, 52, 0, 56)
+	holder.Position = UDim2.new(0.5, xOffset, 0, 8)
+	holder.BackgroundTransparency = 1
+	holder.Parent = host
+	local btn = Instance.new('ImageButton')
+	btn.Size = UDim2.new(0, 40, 0, 40)
+	btn.Position = UDim2.new(0.5, -20, 0, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+	btn.BackgroundTransparency = 0.25
+	btn.BorderSizePixel = 0
+	btn.Image = iconId
+	btn.ImageColor3 = Color3.fromRGB(220, 220, 220)
+	btn.ScaleType = Enum.ScaleType.Fit
+	btn.Parent = holder
 	pcall(function()
-		local tab = Window:CreateTab({Icon = 'rbxassetid://15453364412'})
-		local sec = tab:Section({Name = 'Panels', Side = 'Left', Fill = true})
-		for _, p in ipairs({{Title = 'Open Legit', Api = vape.Legit}, {Title = 'Open Kits', Api = vape.Kits}}) do
-			local win = panelWindow(p.Api)
-			if win then
-				sec:Button({Name = p.Title, Callback = function()
-					pcall(function() win.Visible = true end)
-				end})
-			end
-		end
+		local c = Instance.new('UICorner'); c.CornerRadius = UDim.new(0, 8); c.Parent = btn
 	end)
+	local labelObj = Instance.new('TextLabel')
+	labelObj.Size = UDim2.new(1, 0, 0, 14)
+	labelObj.Position = UDim2.new(0, 0, 0, 42)
+	labelObj.BackgroundTransparency = 1
+	labelObj.Text = label
+	labelObj.TextColor3 = Color3.fromRGB(200, 200, 200)
+	labelObj.TextSize = 12
+	labelObj.Font = Enum.Font.Code
+	labelObj.Parent = holder
+	btn.MouseButton1Click:Connect(function()
+		pcall(function() win.Visible = not win.Visible end)
+	end)
+	return holder
 end
+
+pcall(function()
+	local hostscreen = GS.UI.ScreenGUI or (gethui and gethui())
+	if hostscreen then
+		createPanelButton(vape.Legit, getcustomasset('aetherv2/assets/new/legittab.png'), 'Legit', -40)
+		createPanelButton(vape.Kits, getcustomasset('aetherv2/assets/new/friendstab.png'), 'Kits', 24)
+	end
+end)
 pcall(function() Window:SetTab(1) end)
 
--- retire the old click GUI: unbind its hotkey and hide its category windows.
--- Legit/Kits panels are left alone (opened from the Panels tab).
+-- retire the old click GUI: unbind its hotkey, hide its category windows and the
+-- leftover Uranium banner so only gamesense shows.
 pcall(function() vape.Keybind = {} end)
 if type(vape.Windows) == 'table' then
 	for _, w in pairs(vape.Windows) do
 		pcall(function() w.Visible = false end)
 	end
 end
+pcall(function()
+	if typeof(vape.gui) == 'Instance' then
+		vape.gui.Visible = false
+		vape.gui.Enabled = false
+	end
+end)
 
 pcall(function()
 	if type(GS.Init) == 'function' then GS:Init() end

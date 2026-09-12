@@ -7164,8 +7164,6 @@ do -- Library
         function Library:Init()
             Library.UI.Initialized = true
             --
-            Library:CreateWatermark()
-            --
             Library:Connection(Camera:GetPropertyChangedSignal("ViewportSize"), function()
                 Viewport = Camera.ViewportSize
                 --

@@ -37764,6 +37764,40 @@ run(function()
 end)
 
 run(function()
+	local Shop
+
+	local function getShopApp()
+		local rep = game:GetService('ReplicatedStorage')
+		local lps = game:GetService('Players').LocalPlayer:WaitForChild('PlayerScripts')
+		local Flamework = require(rep.rbxts_include.node_modules['@flamework'].core.out).Flamework
+		local AppController = Flamework.resolveDependency('@easy-games/game-core:client/controllers/app-controller@AppController')
+		local appIds = require(lps.TS.ui.types['app-config'])
+		return AppController, appIds.BedwarsAppIds.BEDWARS_ITEM_SHOP
+	end
+
+	Shop = vape.Categories.Utility:CreateModule({
+		Name = 'Shop',
+		Function = function(callback)
+			if callback then
+				local ok, err = pcall(function()
+					local AppController, shopId = getShopApp()
+					AppController:openApp(shopId, {shopId = nil, IsHomeBase = true})
+				end)
+				if not ok then
+					notif('Shop', 'Could not open the shop', 4, 'alert')
+				end
+			else
+				pcall(function()
+					local AppController, shopId = getShopApp()
+					AppController:closeApp(shopId)
+				end)
+			end
+		end,
+		Tooltip = 'Opens the item shop from anywhere.'
+	})
+end)
+
+run(function()
     local StaffDetector
     local Mode
     local Clans

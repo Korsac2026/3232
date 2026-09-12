@@ -1,5 +1,6 @@
--- aether gamesense GUI: renders Kits + Legit panels only.
--- Key GUI and welcome dashboard are untouched.
+-- aether gamesense GUI: main categories (Combat, Blatant, Exploits, Render,
+-- Utility, World, Inventory). Kits/Legit keep their original panel windows,
+-- opened from the Panels tab. Key GUI and welcome dashboard are untouched.
 local vape = shared.vape
 assert(type(vape) == 'table', 'aether gui: missing vape')
 local fetch = assert(shared.AetherV2FetchSource, 'aether gui: missing fetch')
@@ -7,6 +8,16 @@ local fetch = assert(shared.AetherV2FetchSource, 'aether gui: missing fetch')
 local src = fetch('aetherv2/lib/aether-ui.lua')
 local GS = assert((loadstring or load)(src, 'aether-ui'))()
 assert(type(GS) == 'table' and type(GS.Window) == 'function', 'aether gui: bad ui lib')
+
+local CATEGORY_TABS = {
+	{'Combat', 'rbxassetid://18248771514'},
+	{'Blatant', 'rbxassetid://15453313321'},
+	{'Exploits', 'rbxassetid://15453335745'},
+	{'Render', 'rbxassetid://15453344494'},
+	{'Utility', 'rbxassetid://15453349637'},
+	{'World', 'rbxassetid://15453354931'},
+	{'Inventory', 'rbxassetid://15453359751'},
+}
 
 local function disp(mod)
 	return tostring(mod.DisplayName or mod.Name or 'Module')
@@ -83,87 +94,120 @@ local function renderOption(sec, opt, flag, kids)
 	end
 end
 
-local function renderPanel(tab, panel, tag)
-	local mods = {}
-	if panel and type(panel.Modules) == 'table' then
-		for _, m in pairs(panel.Modules) do
-			if type(m) == 'table' and m.Name then table.insert(mods, m) end
+local function renderModule(sec, mod, tag)
+	local flag = 'aeth_' .. tag .. '_' .. tostring(mod.Name)
+	local kids = {}
+	local function syncKids()
+		local on = modOn(mod)
+		for _, k in ipairs(kids) do
+			pcall(function() k:SetVisible(on) end)
 		end
 	end
+	local ok, t = pcall(function()
+		return sec:Toggle({Name = disp(mod), Default = modOn(mod), Flag = flag,
+			Callback = function(s)
+				local want = s and true or false
+				if want ~= modOn(mod) then
+					pcall(function() mod:Toggle() end)
+				end
+				syncKids()
+			end})
+	end)
+	if not (ok and t) then return end
+	if type(mod.Options) == 'table' then
+		local names = {}
+		for n in pairs(mod.Options) do table.insert(names, n) end
+		table.sort(names, function(a, b) return tostring(a) < tostring(b) end)
+		for _, n in ipairs(names) do
+			local opt = mod.Options[n]
+			if type(opt) == 'table' then
+				local rok = pcall(renderOption, sec, opt, flag .. '_' .. tostring(n), kids)
+				if not rok then
+					pcall(function()
+						table.insert(kids, sec:Label({Message = tostring(n) .. ' (n/a)', Hidden = true}))
+					end)
+				end
+			end
+		end
+	end
+	-- migrate any saved bind into the gamesense keybind so the old
+	-- hidden system never double-toggles the module.
+	local def = Enum.KeyCode.Unknown
+	if type(mod.Bind) == 'table' and #mod.Bind == 1 and Enum.KeyCode[mod.Bind[1]] then
+		def = Enum.KeyCode[mod.Bind[1]]
+	end
+	pcall(function() mod:SetBind({}) end)
+	pcall(function()
+		t:Keybind({Default = def, Mode = 'Toggle', UseMode = true, ChangeToggle = true,
+			Flag = flag .. '_key', Callback = function() end})
+	end)
+	syncKids()
+end
+
+local function renderList(tab, mods, tag)
 	table.sort(mods, function(a, b) return disp(a):lower() < disp(b):lower() end)
 	local left = tab:Section({Name = tag, Side = 'Left', Fill = true})
 	local right = tab:Section({Name = tag .. ' 2', Side = 'Right', Fill = true})
 	local sides = {left, right}
 	for i, mod in ipairs(mods) do
-		local sec = sides[((i - 1) % 2) + 1]
-		local flag = 'aeth_' .. tag .. '_' .. tostring(mod.Name)
-		local kids = {}
-		local function syncKids()
-			local on = modOn(mod)
-			for _, k in ipairs(kids) do
-				pcall(function() k:SetVisible(on) end)
-			end
-		end
-		local ok, t = pcall(function()
-			return sec:Toggle({Name = disp(mod), Default = modOn(mod), Flag = flag,
-				Callback = function(s)
-					local want = s and true or false
-					if want ~= modOn(mod) then
-						pcall(function() mod:Toggle() end)
-					end
-					syncKids()
-				end})
-		end)
-		if ok and t then
-			if type(mod.Options) == 'table' then
-				local names = {}
-				for n in pairs(mod.Options) do table.insert(names, n) end
-				table.sort(names, function(a, b) return tostring(a) < tostring(b) end)
-				for _, n in ipairs(names) do
-					local opt = mod.Options[n]
-					if type(opt) == 'table' then
-						local rok = pcall(renderOption, sec, opt, flag .. '_' .. tostring(n), kids)
-						if not rok then
-							pcall(function()
-								table.insert(kids, sec:Label({Message = tostring(n) .. ' (n/a)', Hidden = true}))
-							end)
-						end
-					end
-				end
-			end
-			-- migrate any saved bind into the gamesense keybind so the old
-			-- hidden system never double-toggles the module.
-			local def = Enum.KeyCode.Unknown
-			if type(mod.Bind) == 'table' and #mod.Bind == 1 and Enum.KeyCode[mod.Bind[1]] then
-				def = Enum.KeyCode[mod.Bind[1]]
-			end
-			pcall(function() mod:SetBind({}) end)
-			pcall(function()
-				t:Keybind({Default = def, Mode = 'Toggle', UseMode = true, ChangeToggle = true,
-					Flag = flag .. '_key', Callback = function() end})
-			end)
-			syncKids()
+		renderModule(sides[((i - 1) % 2) + 1], mod, tag)
+	end
+end
+
+-- group tab-category modules by their Category field
+local byCategory = {}
+if type(vape.Modules) == 'table' then
+	for _, mod in pairs(vape.Modules) do
+		if type(mod) == 'table' and mod.Name and type(mod.Category) == 'string' then
+			byCategory[mod.Category] = byCategory[mod.Category] or {}
+			table.insert(byCategory[mod.Category], mod)
 		end
 	end
 end
 
-local kitsTab = Window:CreateTab({Icon = 'rbxassetid://8547236654'})
-renderPanel(kitsTab, vape.Kits, 'Kits')
-local legitTab = Window:CreateTab({Icon = 'rbxassetid://15453335745'})
-renderPanel(legitTab, vape.Legit, 'Legit')
+for _, entry in ipairs(CATEGORY_TABS) do
+	local name, icon = entry[1], entry[2]
+	local mods = byCategory[name]
+	if mods and #mods > 0 then
+		local tab = Window:CreateTab({Icon = icon})
+		renderList(tab, mods, name)
+	end
+end
+
+-- Panels tab: open the original Legit / Kits windows (each panel module
+-- carries its window frame in .Panel).
+local function panelWindow(panel)
+	if type(panel) ~= 'table' then return nil end
+	if typeof(panel.Panel) == 'Instance' then return panel.Panel end
+	if type(panel.Modules) == 'table' then
+		for _, m in pairs(panel.Modules) do
+			if type(m) == 'table' and typeof(m.Panel) == 'Instance' then
+				return m.Panel
+			end
+		end
+	end
+	return nil
+end
+do
+	local tab = Window:CreateTab({Icon = 'rbxassetid://15453364412'})
+	local sec = tab:Section({Name = 'Panels', Side = 'Left', Fill = true})
+	for _, p in ipairs({{Title = 'Open Legit', Api = vape.Legit}, {Title = 'Open Kits', Api = vape.Kits}}) do
+		local win = panelWindow(p.Api)
+		if win then
+			sec:Button({Name = p.Title, Callback = function()
+				pcall(function() win.Visible = true end)
+			end})
+		end
+	end
+end
 Window:SetTab(1)
 
--- retire the old click GUI: unbind its hotkey and hide its windows.
+-- retire the old click GUI: unbind its hotkey and hide its category windows.
+-- Legit/Kits panels are left alone (opened from the Panels tab).
 pcall(function() vape.Keybind = {} end)
 if type(vape.Windows) == 'table' then
 	for _, w in pairs(vape.Windows) do
 		pcall(function() w.Visible = false end)
-	end
-end
-for _, p in ipairs({vape.Legit, vape.Kits}) do
-	if type(p) == 'table' and p.Panel then
-		pcall(function() p.Panel.Visible = false end)
-		pcall(function() p.Panel:SetVisible(false) end)
 	end
 end
 

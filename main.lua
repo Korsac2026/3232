@@ -270,6 +270,11 @@ local function finishLoading()
 	if not loaded then
 		warn('[Uranium] Config load failed: '..tostring(loadError))
 	end
+	-- If a saved empty Keybind (from the gamesense build) left Shift unbound,
+	-- restore the default so the GUI opens again.
+	if type(vape.Keybind) ~= 'table' or #vape.Keybind == 0 then
+		vape.Keybind = {'RightShift'}
+	end
 	if shared.UraniumPremiumAuthorized and not license.Closet then
 		pcall(function()
 			vape:CreateNotification('Uranium Premium', 'Premium key validated', 6, 'info')

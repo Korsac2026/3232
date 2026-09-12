@@ -124,6 +124,7 @@ local function hardenGui(source)
 	source = source:gsub('option:Load%(v%)', 'pcall(function() option:Load(v) end)')
 	source = source:gsub('object:Toggle%(true%)', 'pcall(function() object:Toggle(true) end)')
 	source = source:gsub('self:UpdateTextGUI%(true%)', 'pcall(function() self:UpdateTextGUI(true) end)')
+	source = source:gsub('function mainapi:AttachContextualOption%(option, settings%)', 'function mainapi:AttachContextualOption(option, settings) option.__s = settings', 1)
 	return source
 end
 

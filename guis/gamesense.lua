@@ -1,6 +1,6 @@
 -- aether gamesense GUI: main categories (Combat, Blatant, Exploits, Render,
--- Utility, World, Inventory). Kits/Legit keep their original panel windows,
--- opened from the Panels tab. Key GUI and welcome dashboard are untouched.
+-- Utility, World, Inventory). Kits/Legit open from two top-center icons.
+-- Key GUI and welcome dashboard are untouched.
 local vape = shared.vape
 assert(type(vape) == 'table', 'aether gui: missing vape')
 local fetch = assert(shared.AetherV2FetchSource, 'aether gui: missing fetch')
@@ -29,161 +29,167 @@ end
 
 local Window = GS:Window({Name = 'aether', CloseBind = Enum.KeyCode.Insert})
 
-local function renderTextList(sec, opt, flag)
-	sec:Label({Message = tostring(opt.Name or 'List')})
-	local shown = {}
-	local listCtl = nil
-	local function refresh()
-		if not listCtl then return end
-		for _, v in ipairs(shown) do
-			pcall(function() listCtl:RemoveValue(v) end)
-		end
-		shown = {}
-		if type(opt.List) == 'table' then
-			for _, v in ipairs(opt.List) do
-				local s = tostring(v)
-				local ok = pcall(function() listCtl:AddValue(s) end)
-				if ok then table.insert(shown, s) end
-			end
-		end
-	end
-	local ok, ctl = pcall(function()
-		return sec:List({Size = 110, Flag = flag, Callback = function(value)
-			if value ~= nil then
-				pcall(function() opt:ChangeValue(tostring(value)) end)
-				refresh()
-			end
-		end})
-	end)
-	if not (ok and ctl) then return end
-	listCtl = ctl
-	refresh()
-	pcall(function()
-		sec:TextBox({Name = 'Add entry', Default = '', CheckIfPressedEnter = true, Flag = flag .. '_add',
-			Callback = function(text)
-				local s = tostring(text or ''):gsub('%s+', '')
-				if s ~= '' then
-					pcall(function() opt:ChangeValue(s) end)
-					refresh()
-				end
-			end})
-	end)
+-- settings snapshot captured at creation time (main.lua injects option.__s).
+local function s(opt, key)
+	local t = opt and opt.__s and type(opt.__s) == 'table' and opt.__s or opt or {}
+	return {
+		Name = t.Name or key or (t.DisplayName or 'Option'),
+		Min = t.Min,
+		Max = t.Max,
+		Suffix = t.Suffix,
+		Default = t.Default,
+		List = t.List,
+		Tooltip = t.Tooltip,
+		Function = t.Function,
+		Visible = t.Visible,
+	}
 end
 
-local function renderTargets(sec, opt, flag)
-	sec:Label({Message = tostring(opt.Name or 'Targets')})
+local function optionValue(opt, key)
+	local t = s(opt, key)
+	if opt.Type == 'Toggle' then
+		return opt.Enabled == true
+	elseif opt.Type == 'Slider' then
+		return tonumber(opt.Value)
+	elseif opt.Type == 'Dropdown' then
+		return opt.Value
+	elseif opt.Type == 'TextBox' then
+		return opt.Value
+	end
+	return nil
+end
+
+local function renderTextList(sec, opt, key)
+	if type(opt.List) ~= 'table' then return end
+	sec:Label({Message = key})
+	sec:TextBox({Name = key .. ' (add)', Default = '', Flag = 'aeth_list_' .. key,
+		CheckIfPressedEnter = true,
+		Callback = function(text)
+			local v = tostring(text or ''):gsub('%s+', '')
+			if v ~= '' then pcall(function() opt:ChangeValue(v) end) end
+		end})
+	local shown = {}
+	for _, v in ipairs(opt.List) do
+		local name = tostring(v)
+		shown[#shown + 1] = name
+		sec:Toggle({Name = name, Default = opt.ListEnabled and table.find(opt.ListEnabled, v) ~= nil,
+			Flag = 'aeth_tl_' .. key .. '_' .. name,
+			Callback = function(st)
+				pcall(function() opt:ChangeValue(name) end)
+			end})
+	end
+end
+
+local function renderTargets(sec, opt, key)
+	sec:Label({Message = key or 'Targets'})
 	for _, sub in ipairs({
-		{Key = 'Players', Label = 'Target players'},
-		{Key = 'NPCs', Label = 'Target NPCs'},
+		{Key = 'Players', Label = 'Players'},
+		{Key = 'NPCs', Label = 'NPCs'},
 		{Key = 'Invisible', Label = 'Ignore invisible'},
 		{Key = 'Walls', Label = 'Ignore behind walls'},
 	}) do
 		local so = opt[sub.Key]
 		if type(so) == 'table' then
-			pcall(function()
-				sec:Toggle({Name = sub.Label, Default = so.Enabled == true, Flag = flag .. '_' .. sub.Key,
-					Callback = function(s)
-						local want = s and true or false
-						if want ~= (so.Enabled and true or false) then
-							pcall(function() so:Toggle() end)
-						end
-					end})
-			end)
+			sec:Toggle({Name = sub.Label, Default = so.Enabled == true,
+				Flag = 'aeth_tg_' .. key .. '_' .. sub.Key,
+				Callback = function(st)
+					if (so.Enabled == true) ~= (st == true) then
+						pcall(function() so:Toggle() end)
+					end
+				end})
 		end
 	end
 end
 
-local function renderOption(sec, opt, flag)
+local function renderOption(sec, opt, key, kids)
+	local og = s(opt, key)
+	local name = tostring(og.Name or key or 'Option')
 	local t = tostring(opt.Type or '')
-	local name = tostring(opt.Name or 'Option')
 	if t == 'Toggle' then
-		sec:Toggle({Name = name, Default = opt.Enabled == true, Flag = flag,
-			Callback = function(s)
-				local want = s and true or false
-				if want ~= (opt.Enabled and true or false) then
+		table.insert(kids, sec:Toggle({Name = name, Default = opt.Enabled == true, Flag = 'aeth_' .. key,
+			Callback = function(st)
+				if (opt.Enabled == true) ~= (st == true) then
 					pcall(function() opt:Toggle() end)
 				end
-			end})
+			end}))
 	elseif t == 'Slider' then
-		local min = tonumber(opt.Min) or 0
-		local max = tonumber(opt.Max) or 100
-		if max <= min then max = min + 1 end
+		local min = og.Min ~= nil and tonumber(og.Min) or 0
+		local max = og.Max ~= nil and tonumber(og.Max) or (min + 1)
 		local val = tonumber(opt.Value) or min
 		if val < min then val = min elseif val > max then val = max end
-		local dec = ((val % 1 ~= 0) or (min % 1 ~= 0) or (max % 1 ~= 0)) and 2 or 0
-		sec:Slider({Name = name, Min = min, Max = max, Default = val, Decimal = dec,
-			Ending = tostring(opt.Suffix or ''), Flag = flag,
-			Callback = function(v)
-				pcall(function() opt:SetValue(v) end)
-			end})
+		table.insert(kids, sec:Slider({Name = name, Min = min, Max = max, Default = val,
+			Decimal = (val % 1 ~= 0 or min % 1 ~= 0 or max % 1 ~= 0) and 2 or 0,
+			Ending = tostring(og.Suffix or ''), Flag = 'aeth_' .. key,
+			Callback = function(v) pcall(function() opt:SetValue(v) end) end}))
 	elseif t == 'Dropdown' then
-		local list = (type(opt.List) == 'table' and #opt.List > 0) and opt.List or {'None'}
-		sec:Dropdown({Name = name, Content = list, Default = opt.Value, Flag = flag,
-			Callback = function(v)
-				pcall(function() opt:SetValue(v) end)
-			end})
+		local list = (og.List and #og.List > 0) and og.List or {tostring(opt.Value or 'None')}
+		table.insert(kids, sec:Dropdown({Name = name, Content = list, Default = opt.Value,
+			Flag = 'aeth_' .. key,
+			Callback = function(v) pcall(function() opt:SetValue(v) end) end}))
 	elseif t == 'TextBox' then
-		sec:TextBox({Name = name, Default = tostring(opt.Value or ''), Flag = flag,
-			Callback = function(v)
-				pcall(function() opt:SetValue(v) end)
-			end})
+		table.insert(kids, sec:TextBox({Name = name, Default = tostring(opt.Value or ''),
+			Flag = 'aeth_' .. key,
+			Callback = function(v) pcall(function() opt:SetValue(v) end) end}))
 	elseif t == 'Button' then
-		local fn = opt.Function
-		sec:Button({Name = name,
-			Callback = function()
-				if type(fn) == 'function' then pcall(fn) end
-			end})
+		table.insert(kids, sec:Button({Name = name,
+			Callback = function() pcall(og.Function or function() end) end}))
 	elseif t == 'ColorSlider' then
-		local col = (typeof(opt.Value) == 'Color3') and opt.Value or Color3.new(1, 1, 1)
-		local lab = sec:Label({Message = name})
+		local hue = opt.Hue or 0
+		local sat = opt.Sat or 0
+		local val = opt.Value ~= nil and opt.Value or 1
+		local col = Color3.fromHSV(hue, sat, val)
+		table.insert(kids, sec:Label({Message = name}))
+		local lab = sec:Label({Message = ' '})
 		pcall(function()
-			lab:ColorPicker({Default = col, Flag = flag,
+			lab:ColorPicker({Default = col, Flag = 'aeth_' .. key,
 				Callback = function(c)
-					local h, s, v = c:ToHSV()
+					local h, st, vv = c:ToHSV()
 					pcall(function()
-						if type(opt.SetValue) == 'function' then opt:SetValue(h, s, v) else opt:Color(h, s, v) end
+						if type(opt.SetValue) == 'function' then opt:SetValue(h, st, vv) else opt:Color(h, st, vv) end
 					end)
 				end})
 		end)
+		table.insert(kids, lab)
 	elseif t == 'TextList' then
-		renderTextList(sec, opt, flag)
+		renderTextList(sec, opt, key)
 	elseif t == 'Targets' then
-		renderTargets(sec, opt, flag)
+		renderTargets(sec, opt, key)
 	else
 		sec:Label({Message = name .. ' (n/a)'})
 	end
 end
 
 local function renderModule(sec, mod, tag)
-	local flag = 'aeth_' .. tag .. '_' .. tostring(mod.Name)
+	local flag = 'aeth_mod_' .. tag .. '_' .. tostring(mod.Name)
+	local kids = {}
+	local function syncKids()
+		local on = modOn(mod)
+		for _, k in ipairs(kids) do
+			pcall(function() k:SetVisible(on) end)
+		end
+	end
 	local ok, t = pcall(function()
 		return sec:Toggle({Name = disp(mod), Default = modOn(mod), Flag = flag,
-			Callback = function(s)
-				local want = s and true or false
-				if want ~= modOn(mod) then
+			Callback = function(st)
+				if modOn(mod) ~= (st == true) then
 					pcall(function() mod:Toggle() end)
 				end
+				syncKids()
 			end})
 	end)
 	if not (ok and t) then return end
 	if type(mod.Options) == 'table' then
 		local names = {}
-		for n in pairs(mod.Options) do table.insert(names, n) end
+		for n in pairs(mod.Options) do names[#names + 1] = n end
 		table.sort(names, function(a, b) return tostring(a) < tostring(b) end)
 		for _, n in ipairs(names) do
 			local opt = mod.Options[n]
-			if type(opt) == 'table' then
-				local rok = pcall(renderOption, sec, opt, flag .. '_' .. tostring(n))
-				if not rok then
-					pcall(function()
-						sec:Label({Message = tostring(n) .. ' (n/a)'})
-					end)
-				end
+			if type(opt) == 'table' and opt.Type ~= 'Label' then
+				pcall(renderOption, sec, opt, n, kids)
 			end
 		end
 	end
-	-- migrate any saved bind into the gamesense keybind so the old
-	-- hidden system never double-toggles the module.
+	-- migrate a saved bind into the gamesense keybind.
 	local def = Enum.KeyCode.Unknown
 	if type(mod.Bind) == 'table' and #mod.Bind == 1 and Enum.KeyCode[mod.Bind[1]] then
 		def = Enum.KeyCode[mod.Bind[1]]
@@ -193,6 +199,7 @@ local function renderModule(sec, mod, tag)
 		t:Keybind({Default = def, Mode = 'Toggle', UseMode = true, ChangeToggle = true,
 			Flag = flag .. '_key', Callback = function() end})
 	end)
+	syncKids()
 end
 
 local function renderList(tab, mods, tag)
@@ -205,7 +212,6 @@ local function renderList(tab, mods, tag)
 	end
 end
 
--- group tab-category modules by their Category field
 local byCategory = {}
 if type(vape.Modules) == 'table' then
 	for _, mod in pairs(vape.Modules) do
@@ -227,8 +233,8 @@ for _, entry in ipairs(CATEGORY_TABS) do
 	end)
 end
 
--- Legit / Kits are opened from two clickable icons pinned to the top-center
--- of the screen (one per panel), outside the window so they always stay reachable.
+-- Kits / Legit: reparent their panel windows to gethui (independent of the old
+-- Uranium ScreenGui) and pin a clickable icon per panel at the top center.
 local function panelWindow(panel)
 	if type(panel) ~= 'table' then return nil end
 	if typeof(panel.Panel) == 'Instance' then return panel.Panel end
@@ -242,21 +248,25 @@ local function panelWindow(panel)
 	return nil
 end
 
-local function createPanelButton(api, iconId, label, xOffset)
-	local win = panelWindow(api)
+local host = GS.UI.ScreenGUI or (gethui and gethui())
+local function pinPanelButton(panel, iconId, label, xOff)
+	local win = panelWindow(panel)
 	if not win then return nil end
-	local host = GS.UI.ScreenGUI or (gethui and gethui())
+	if typeof(win) == 'Instance' and win.Parent and typeof(vape.gui) == 'Instance' and win:IsDescendantOf(vape.gui) then
+		pcall(function() win.Parent = gethui() end)
+	end
 	if not host then return nil end
 	local holder = Instance.new('Frame')
+	holder.AnchorPoint = Vector2.new(0, 0)
 	holder.Size = UDim2.new(0, 52, 0, 56)
-	holder.Position = UDim2.new(0.5, xOffset, 0, 8)
+	holder.Position = UDim2.new(0.5, xOff, 0, 6)
 	holder.BackgroundTransparency = 1
 	holder.Parent = host
 	local btn = Instance.new('ImageButton')
+	btn.AnchorPoint = Vector2.new(0.5, 0)
 	btn.Size = UDim2.new(0, 40, 0, 40)
-	btn.Position = UDim2.new(0.5, -20, 0, 0)
+	btn.Position = UDim2.new(0.5, 0, 0, 0)
 	btn.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-	btn.BackgroundTransparency = 0.25
 	btn.BorderSizePixel = 0
 	btn.Image = iconId
 	btn.ImageColor3 = Color3.fromRGB(220, 220, 220)
@@ -280,17 +290,19 @@ local function createPanelButton(api, iconId, label, xOffset)
 	return holder
 end
 
-pcall(function()
-	local hostscreen = GS.UI.ScreenGUI or (gethui and gethui())
-	if hostscreen then
-		createPanelButton(vape.Legit, getcustomasset('aetherv2/assets/new/legittab.png'), 'Legit', -40)
-		createPanelButton(vape.Kits, getcustomasset('aetherv2/assets/new/friendstab.png'), 'Kits', 24)
+do
+	local legitWin = panelWindow(vape.Legit)
+	local kitsWin = panelWindow(vape.Kits)
+	if host then
+		if legitWin then pinPanelButton(vape.Legit, getcustomasset('aetherv2/assets/new/legittab.png'), 'Legit', -40) end
+		if kitsWin then pinPanelButton(vape.Kits, getcustomasset('aetherv2/assets/new/friendstab.png'), 'Kits', 20) end
 	end
-end)
+end
+
 pcall(function() Window:SetTab(1) end)
 
--- retire the old click GUI: unbind its hotkey, hide its category windows and the
--- leftover Uranium banner so only gamesense shows.
+-- retire the old click GUI: unbind its hotkey and disable the Uranium ScreenGui
+-- (panels were already reparented above).
 pcall(function() vape.Keybind = {} end)
 if type(vape.Windows) == 'table' then
 	for _, w in pairs(vape.Windows) do
@@ -299,11 +311,7 @@ if type(vape.Windows) == 'table' then
 end
 pcall(function()
 	if typeof(vape.gui) == 'Instance' then
-		if vape.gui:IsA('ScreenGui') then
-			vape.gui.Enabled = false
-		else
-			vape.gui.Visible = false
-		end
+		if vape.gui:IsA('ScreenGui') then vape.gui.Enabled = false else vape.gui.Visible = false end
 	end
 end)
 

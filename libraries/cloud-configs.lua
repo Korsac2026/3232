@@ -9,7 +9,7 @@ license = type(license) == 'table' and license or {}
 local profiles = mainapi.Categories and mainapi.Categories.Profiles
 local internals = mainapi.CloudConfigInternals
 if not profiles or type(internals) ~= 'table' or type(internals.ImportJson) ~= 'function' or type(internals.ConfigPath) ~= 'function' then
-	warn('[AetherV2/CloudConfigs] Config internals are unavailable')
+	warn('[Uranium/CloudConfigs] Config internals are unavailable')
 	return
 end
 
@@ -94,7 +94,7 @@ end
 local function cloudRequest(method, path, body, premiumRequired)
 	method = string.upper(method or 'GET')
 	if premiumRequired then
-		if not isPremium then return nil, 'AetherV2 Premium is required for Cloud Config management' end
+		if not isPremium then return nil, 'Uranium Premium is required for Cloud Config management' end
 		local separator = path:find('?', 1, true) and '&' or '?'
 		path = path..separator..'session='..urlEncode(shared.AetherV2PremiumToken)
 	end
@@ -262,7 +262,7 @@ local function syncLocalRecord(key, record)
 		saveState()
 		if mainapi.Profile == record.profile then notify('Synced '..record.profile..' from its share code') end
 	else
-		warn('[AetherV2/CloudConfigs] Local copy sync failed: '..tostring(result))
+		warn('[Uranium/CloudConfigs] Local copy sync failed: '..tostring(result))
 	end
 end
 
@@ -422,7 +422,7 @@ if isPremium then
 			if not selectedCloudId then return notify('Select a cloud config first', true) end
 			task.spawn(saveCloudConfig, selectedCloudId, false)
 		end,
-		Tooltip = 'Overwrite the selected cloud config with your current Aether config'
+		Tooltip = 'Overwrite the selected cloud config with your current Uranium config'
 	}), cloudControlObjects)
 	autoSaveToggle = remember(profiles:CreateToggle({
 		Name = 'Auto Save',

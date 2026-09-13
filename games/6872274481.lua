@@ -25,7 +25,7 @@ local run = function(func, timeout)
 		task.wait(0.2)
 	until tick() - started >= timeout
 
-	warn('[AetherV2] Skipped a BedWars module during startup: '..tostring(lastError))
+	warn('[Uranium] Skipped a BedWars module during startup: '..tostring(lastError))
 end
 local cloneref = cloneref or function(obj)
 	return obj
@@ -1248,7 +1248,7 @@ run(function()
 		if not debug.getupvalue(Knit.Start, 1) then
 			
 			
-			warn('[AetherV2] debug.getupvalue is unavailable here - modules that need it are disabled')
+			warn('[Uranium] debug.getupvalue is unavailable here - modules that need it are disabled')
 			canDebug = false
 		end
 	end
@@ -1546,7 +1546,7 @@ run(function()
 			remote = packages.remotes[i]
 		end
 		if remote == '' then
-			notif('AetherV2', 'Failed to grab remote ('..i..')', 10, 'alert')
+			notif('Uranium', 'Failed to grab remote ('..i..')', 10, 'alert')
 		end
 		remotes[i] = remote
 	end
@@ -3824,7 +3824,7 @@ local runtimeLoaded, runtimeResult = xpcall(function()
     return registerAetherRuntimeBase(AetherRuntimeContext)
 end, debug and debug.traceback or tostring)
 if not runtimeLoaded or type(runtimeResult) ~= 'table' then
-    error('[AetherV2] AutoWin/Jade runtime failed: '..tostring(runtimeResult))
+    error('[Uranium] AutoWin/Jade runtime failed: '..tostring(runtimeResult))
 end
 AetherMatchRuntime = runtimeResult
 
@@ -3842,7 +3842,7 @@ local function aetherPortSafe(label, fn, ...)
     return true, result
 end
 local function aetherPortNotify(text, duration, kind)
-    aetherPortSafe('notify', notif, 'AetherV2', text, duration or 3, kind)
+    aetherPortSafe('notify', notif, 'Uranium', text, duration or 3, kind)
 end
 local function aetherPortRoot()
     local char = entitylib.character
@@ -11449,7 +11449,7 @@ Runtime.JIK=JIK
 local function jikDebug(message,data)
     JIK.Diagnostics.At=now();JIK.Diagnostics.State=JIK.State;JIK.Diagnostics.Message=message
     if data then for k,v in pairs(data) do JIK.Diagnostics[k]=v end end
-    if JIKOptions.Debug and JIKOptions.Debug.Enabled then warn('[AetherV2/JIK] '..message) end
+    if JIKOptions.Debug and JIKOptions.Debug.Enabled then warn('[Uranium/JIK] '..message) end
 end
 local function jikTransition(state,detail)
     local old=JIK.State;JIK.State=state;JIK.Diagnostics.LastTransition=old..' -> '..state;if detail then JIK.Diagnostics.Detail=detail end
@@ -11603,7 +11603,7 @@ end)
 
 run(function()
     local runtime = shared.AetherLongJumpRuntime
-    if not runtime or not runtime.Module then warn('[AetherV2] LongJumpBypass requires LongJump runtime'); return end
+    if not runtime or not runtime.Module then warn('[Uranium] LongJumpBypass requires LongJump runtime'); return end
     local LongJumpBypass, BypassBoost
     
     
@@ -13368,7 +13368,7 @@ end)
 run(function()
 	local category = vape.Categories.Inventory or vape.Categories.Utility or vape.Categories.World
 	if not category or type(category.CreateModule) ~= 'function' then
-		warn('[AetherV2] AutoEnchant could not find a module category')
+		warn('[Uranium] AutoEnchant could not find a module category')
 		return
 	end
 	if vape.Modules and vape.Modules.AutoEnchant then
@@ -20441,7 +20441,7 @@ run(function()
 	FlapSpeed = AutoXurot:CreateToggle({
 		Name = 'Flap speed',
 		Default = true,
-		Tooltip = 'Keeps Aether\'s Void Dragon flap speed boost'
+		Tooltip = 'Keeps Uranium\'s Void Dragon flap speed boost'
 	})
 end)
 
@@ -23144,12 +23144,12 @@ local function registerTrixie(context)
         if type(notif) == 'function' then
             pcall(notif, 'TrixieExploit', message, 6, 'warning')
         else
-            warn('[AetherV2] TrixieExploit: '..tostring(message))
+            warn('[Uranium] TrixieExploit: '..tostring(message))
         end
     end
 
     if not vape then
-        warn('[AetherV2] TrixieExploit: vape unavailable during registration')
+        warn('[Uranium] TrixieExploit: vape unavailable during registration')
         return
     end
 
@@ -23162,7 +23162,7 @@ local function registerTrixie(context)
     end
 
     if not (kits and type(kits.CreateModule) == 'function') then
-        warn('[AetherV2] TrixieExploit: active kit category is unavailable')
+        warn('[Uranium] TrixieExploit: active kit category is unavailable')
         notify('The active kit category is unavailable; TrixieExploit could not be registered.')
         return
     end
@@ -23331,7 +23331,7 @@ local function registerTrixie(context)
     })
 
     if not created or not moduleOrError then
-        warn('[AetherV2] TrixieExploit registration failed: '..tostring(moduleOrError))
+        warn('[Uranium] TrixieExploit registration failed: '..tostring(moduleOrError))
         notify('TrixieExploit failed to register. Check the developer console.')
         return
     end
@@ -23358,7 +23358,7 @@ end
     local trixieLoaded, trixieResult = xpcall(function()
         return registerTrixie(context)
     end, debug and debug.traceback or tostring)
-    if not trixieLoaded then warn('[AetherV2] TrixieExploit failed to load: '..tostring(trixieResult)) end
+    if not trixieLoaded then warn('[Uranium] TrixieExploit failed to load: '..tostring(trixieResult)) end
 
 
 end)
@@ -33457,7 +33457,7 @@ run(function()
                 for name, event in Events do
                     local ok, err = pcall(event)
                     if not ok then
-                        warn('[AetherV2] CheatDetector '..name..': '..tostring(err))
+                        warn('[Uranium] CheatDetector '..name..': '..tostring(err))
                     end
                 end
 
@@ -33467,7 +33467,7 @@ run(function()
                     if ok and type(fn) == 'function' then
                         running[name] = fn
                     else
-                        warn('[AetherV2] CheatDetector '..name..': '..tostring(fn))
+                        warn('[Uranium] CheatDetector '..name..': '..tostring(fn))
                     end
                 end
 
@@ -33500,7 +33500,7 @@ run(function()
                                 if not wanted(name) then continue end
                                 local ok, err = pcall(fn, now, list, delta)
                                 if not ok then
-                                    warn('[AetherV2] CheatDetector '..name..': '..tostring(err))
+                                    warn('[Uranium] CheatDetector '..name..': '..tostring(err))
                                 end
                             end
                         end
@@ -38708,7 +38708,7 @@ AutoWin=vape.Categories.World:CreateModule({Name='AutoWin',Tooltip='Reactive mat
 end})
 Runtime.AutoWin=AutoWin
 AutoOptions.Aggression=AutoWin:CreateDropdown({Name='Aggression',List={'Safe','Balanced','Blatant'},Tooltip='Risk tolerance used by objective scoring and recovery'});pcall(function()AutoOptions.Aggression:SetValue('Balanced')end)
-AutoOptions.TakeOver=AutoWin:CreateToggle({Name='Take over modules',Default=true,Tooltip='Temporarily leases existing Aether helpers and safely restores untouched settings'})
+AutoOptions.TakeOver=AutoWin:CreateToggle({Name='Take over modules',Default=true,Tooltip='Temporarily leases existing Uranium helpers and safely restores untouched settings'})
 AutoOptions.KillPlayers=AutoWin:CreateToggle({Name='Kill players',Default=true})
 AutoOptions.RespawnAfterBed=AutoWin:CreateToggle({Name='Respawn after bed',Default=true,Tooltip='Compatibility setting; semantic recovery decides when a safe reset is appropriate'})
 AutoOptions.BankLoot=AutoWin:CreateToggle({Name='Bank loot',Default=true})
@@ -41528,7 +41528,7 @@ end
     local patched, patchResult = xpcall(function()
         return patchAetherRuntime(AetherMatchRuntime, context)
     end, debug and debug.traceback or tostring)
-    if not patched then warn('[AetherV2] AutoWin/JIK integration patch failed: '..tostring(patchResult)) end
+    if not patched then warn('[Uranium] AutoWin/JIK integration patch failed: '..tostring(patchResult)) end
 
 
 AetherMatchRuntime.JadeHammerExploit = vape.Modules and vape.Modules.JadeHammerExploit or nil
@@ -41538,7 +41538,7 @@ local function run(fn)
 	task.spawn(function()
 		local ok, err = pcall(fn)
 		if not ok then
-			warn("[Aether Port] " .. tostring(err))
+			warn("[Uranium] " .. tostring(err))
 		end
 	end)
 end
@@ -41585,7 +41585,7 @@ end
 
 local function createModule(catName, def)
 	local cat = category(catName) or category("Utility") or category("Render") or category("Blatant")
-	assert(cat and cat.CreateModule, "Aether GUI not ready (no CreateModule)")
+	assert(cat and cat.CreateModule, "Uranium GUI not ready (no CreateModule)")
 	return cat:CreateModule(def)
 end
 
@@ -42365,4 +42365,4 @@ run(function()
 end)
 
 
-notify("Aether Port", "Loaded 8 modules", 3)
+notify("Uranium", "Loaded 8 modules", 3)

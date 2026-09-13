@@ -36,7 +36,7 @@ local chunk, compileError = compileCanonical(source)
 if not chunk then
 	local fetch = shared.AetherV2FetchSource
 	if type(fetch) ~= 'function' then
-		error('[AetherV2] Private source fetcher is unavailable for child-place forwarding', 0)
+		error('[Uranium] Private source fetcher is unavailable for child-place forwarding', 0)
 	end
 
 	local lastError = compileError
@@ -56,7 +56,7 @@ if not chunk then
 		if attempt < 3 then task.wait(attempt) end
 	end
 	if not chunk then
-		error('[AetherV2] Failed to load canonical game '..targetPlace..': '..tostring(lastError), 0)
+		error('[Uranium] Failed to load canonical game '..targetPlace..': '..tostring(lastError), 0)
 	end
 end
 

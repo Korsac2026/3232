@@ -7,7 +7,7 @@ local _sti = setthreadidentity or (getfenv and getfenv().setthreadidentity) or n
 local cloneref = cloneref or function(obj) return obj end
 
 local vape = shared.vape or (getgenv and getgenv().vape)
-assert(vape, '[AetherV2] shared.vape is not available')
+assert(vape, '[Uranium] shared.vape is not available')
 
 local Players = cloneref and cloneref(game:GetService('Players')) or game:GetService('Players')
 local RunService = cloneref and cloneref(game:GetService('RunService')) or game:GetService('RunService')
@@ -50,8 +50,8 @@ local function createModule(categoryName, definition)
             if vape.Categories[fallback] then category = vape.Categories[fallback]; break end
         end
     end
-    if not category then error('[AetherV2] Missing category '..tostring(categoryName)) end
-    assert(type(category.CreateModule) == 'function', '[AetherV2] Category '..categoryName..' does not support CreateModule')
+    if not category then error('[Uranium] Missing category '..tostring(categoryName)) end
+    assert(type(category.CreateModule) == 'function', '[Uranium] Category '..categoryName..' does not support CreateModule')
     return category:CreateModule(definition)
 end
 
@@ -98,7 +98,7 @@ end
 local function run(fn)
     task.spawn(function()
         local ok, err = xpcall(fn, debug and debug.traceback or tostring)
-        if not ok then warn('[AetherV2] Bedfight port: '..tostring(err)) end
+        if not ok then warn('[Uranium] Bedfight port: '..tostring(err)) end
     end)
 end
 

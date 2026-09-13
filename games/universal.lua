@@ -2,7 +2,7 @@ local vape = shared.vape
 local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
-		vape:CreateNotification('AetherV2', 'Failed to load : ' .. err, 30, 'alert')
+		vape:CreateNotification('Uranium', 'Failed to load : ' .. err, 30, 'alert')
 	end
 	return res
 end
@@ -44,7 +44,7 @@ end
 local run = function(func)
 	local success, result = xpcall(func, debug and debug.traceback or tostring)
 	if not success then
-		warn('[AetherV2] Skipped a universal module during startup: '..tostring(result))
+		warn('[Uranium] Skipped a universal module during startup: '..tostring(result))
 	end
 	return success
 end
@@ -182,7 +182,7 @@ local function serverHop(pointer, filter)
 		table.insert(visited, game.JobId)
 	end
 	if not pointer then
-		notif('AetherV2', 'Searching for an available server.', 2)
+		notif('Uranium', 'Searching for an available server.', 2)
 	end
 
 	local suc, httpdata = pcall(function()
@@ -208,7 +208,7 @@ local function serverHop(pointer, filter)
 				cacheExpire, cache = tick() + 60, httpdata
 				table.insert(attempted, v.id)
 
-				notif('AetherV2', 'Found! Teleporting.', 5)
+				notif('Uranium', 'Found! Teleporting.', 5)
 				teleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
 				return
 			end
@@ -217,11 +217,11 @@ local function serverHop(pointer, filter)
 		if data.nextPageCursor then
 			serverHop(data.nextPageCursor, filter)
 		else
-			notif('AetherV2', 'Failed to find an available server.', 5, 'warning')
+			notif('Uranium', 'Failed to find an available server.', 5, 'warning')
 		end
 	else
 		notif(
-			'AetherV2',
+			'Uranium',
 			'Failed to grab servers. (' .. (data and data.errors[1].message or 'no data') .. ')',
 			5,
 			'warning'
@@ -4077,7 +4077,7 @@ run(function()
 						local success, problem = pcall(workspace.StepPhysics, workspace, dt * (scale - 1), {root})
 						if not success and not stepPhysicsFailure then
 							stepPhysicsFailure = tostring(problem)
-							warn('[AetherV2] Timer could not step local physics: '..stepPhysicsFailure)
+							warn('[Uranium] Timer could not step local physics: '..stepPhysicsFailure)
 						end
 					end
 					scaleAnimations(scale)
@@ -8109,7 +8109,7 @@ run(function()
 				if not Freecam.Enabled then return end
 				local ok, err = pcall(step, dt)
 				if not ok then
-					warn('[AetherV2] Freecam: '..tostring(err))
+					warn('[Uranium] Freecam: '..tostring(err))
 				end
 			end)
 			-- Registered as well as called below, so an uninject also puts everything back.
@@ -8505,7 +8505,7 @@ run(function()
     HideHud = Freecam:CreateToggle({
 	Name = 'Hide HUD',
 	Function = refreshInterface,
-	Tooltip = 'Hides the game interface while filming. The AetherV2 menu stays up'
+	Tooltip = 'Hides the game interface while filming. The Uranium menu stays up'
     })
     Collision = Freecam:CreateToggle({Name = 'Camera collision', Default = true, Tooltip = 'Slides along solid geometry'})
 end)
@@ -9775,7 +9775,7 @@ run(function()
 	end)
 
 	if not success or typeof(json) ~= 'table' then
-		notif('AetherV2', 'Invalid json format for fflag', 12, 'warning')
+		notif('Uranium', 'Invalid json format for fflag', 12, 'warning')
 		return
 	end
 
@@ -9790,7 +9790,7 @@ run(function()
 		pcall(setfflag, i, tostring(v))
 	end
 
-	notif('AetherV2', 'FFlags applied, Go in a new game to take effect', 12, 'info')
+	notif('Uranium', 'FFlags applied, Go in a new game to take effect', 12, 'info')
     end
 
     FFlag = vape.Categories.Legit:CreateModule({
@@ -9803,7 +9803,7 @@ run(function()
 		if call then
 			ChangeFFlag(true)
 		else
-			notif('AetherV2', 'Inorder to disable fflags you have applied, You need to restart roblox', 20, 'info')
+			notif('Uranium', 'Inorder to disable fflags you have applied, You need to restart roblox', 20, 'info')
 		end
 	end,
     })

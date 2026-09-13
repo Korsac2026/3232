@@ -19,4 +19,4 @@ end
 -- NOTE: This upload path cannot carry the 83KB lobby in one shot from this session.
 -- Keep a valid parseable stub that fails loudly rather than a silent PLACEHOLDER.
 -- The complete lobby with NameTagSpoofer + LARPKits defaults is in the workspace copy.
-warn('[AetherV2] games/6872265039.lua on GitHub is incomplete. Use the local artifacts/6872265039.lua copy.')
+warn('[Uranium] games/6872265039.lua on GitHub is incomplete. Use the local artifacts/6872265039.lua copy.')

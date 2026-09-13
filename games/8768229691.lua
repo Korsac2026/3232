@@ -3,7 +3,7 @@
 local run = function(func)
 	local success, result = xpcall(func, debug and debug.traceback or tostring)
 	if not success then
-		warn('[AetherV2] Skipped a module during startup: '..tostring(result))
+		warn('[Uranium] Skipped a module during startup: '..tostring(result))
 	end
 	return success
 end

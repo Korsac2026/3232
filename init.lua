@@ -773,7 +773,7 @@ local function showWelcomeDashboard()
 		pcall(function() screen:Destroy() end)
 	end)
 
-	label('AETHER', UDim2.fromOffset(24, 14), UDim2.new(1, -70, 0, 28), Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 22)
+	label('URANIUM', UDim2.fromOffset(24, 14), UDim2.new(1, -70, 0, 28), Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 22)
 	label('session overview', UDim2.fromOffset(24, 40), UDim2.new(1, -70, 0, 16), Color3.fromRGB(130, 140, 150), Enum.Font.Gotham, 12)
 
 	label('YOUR KEY', UDim2.fromOffset(24, 66), UDim2.fromOffset(300, 16), Color3.fromRGB(0, 255, 170), Enum.Font.GothamBold, 11)

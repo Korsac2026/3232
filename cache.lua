@@ -115,7 +115,7 @@ local function downloadCurrent(relative, expectedSha, ref)
 		return game:HttpGet(rawUrl(relative, ref), true)
 	end)
 	if not ok or not validDownloadedFile(relative, body) then
-		warn('[AetherV2] Failed to update '..relative)
+		warn('[Uranium] Failed to update '..relative)
 		return false
 	end
 	if relative:sub(-4) == '.lua' then
@@ -124,7 +124,7 @@ local function downloadCurrent(relative, expectedSha, ref)
 	ensureFolder(path)
 	local wrote = pcall(writefile, path, body)
 	if not wrote then
-		warn('[AetherV2] Failed to write '..path)
+		warn('[Uranium] Failed to write '..path)
 		return false
 	end
 	revisions[relative] = expectedSha
@@ -185,7 +185,7 @@ if not (latest and cached == latest) then
 			pcall(writefile, commitPath, latest)
 		end
 	else
-		warn('[AetherV2] File revision check skipped: '..tostring(err))
+		warn('[Uranium] File revision check skipped: '..tostring(err))
 	end
 end
 

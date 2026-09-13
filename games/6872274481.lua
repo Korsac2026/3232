@@ -42223,6 +42223,8 @@ run(function()
 		StrokeCol = Healthbar:CreateColorSlider({Name = "Highlight Color"})
 		TextCol = Healthbar:CreateColorSlider({Name = "Text Color"})
 	end
+end)
+
 run(function()
 	local localVape = (shared and shared.vape) or (getgenv and getgenv().vape) or _G.vape
 	if not localVape then return end

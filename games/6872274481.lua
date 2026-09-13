@@ -1,3 +1,5 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local license = ... or {}
 if type(license) ~= 'table' then license = {} end
 license.Closet = license.Closet == true
@@ -42221,11 +42223,14 @@ run(function()
 		StrokeCol = Healthbar:CreateColorSlider({Name = "Highlight Color"})
 		TextCol = Healthbar:CreateColorSlider({Name = "Text Color"})
 	end
-end)
-
 run(function()
+	local localVape = (shared and shared.vape) or (getgenv and getgenv().vape) or _G.vape
+	if not localVape then return end
+	local entitylib = localVape.Libraries and localVape.Libraries.entity
+	if not entitylib then return end
+	local Runtime = AetherMatchRuntime
 	if not Runtime or not Runtime.Jade then return end
-	local JIKEng = Runtime.Jade
+	local JadeSvc = Runtime.Jade
 	local JIKV2 = {
 		Enabled = false,
 		Generation = 0,
@@ -42241,8 +42246,16 @@ run(function()
 		if data then for k, v in pairs(data) do JIKV2[k] = v end end
 	end
 
+	local function rootOfLocal()
+		local char = entitylib.character
+		if entitylib.isAlive and char and char.RootPart and char.RootPart.Parent then
+			return char.RootPart
+		end
+		return nil
+	end
+
 	local function findTarget(range)
-		local root = entitylib.character and entitylib.character.RootPart
+		local root = rootOfLocal()
 		if not root then return nil end
 		local ok, result = pcall(entitylib.EntityPosition, {
 			Origin = root.Position,
@@ -42263,20 +42276,27 @@ run(function()
 		if JIKV2.Busy then return end
 		JIKV2.Busy = true
 		local ok, err = xpcall(function()
-			local root = entitylib.character and entitylib.character.RootPart
+			local root = rootOfLocal()
 			if not root then return end
 			local target = findTarget(JIKV2.Options.Range.Value)
 			if not target then v2debug('no-target'); return end
-			local hammer = JIKEng:GetBestHammer()
+			local hammer = JadeSvc:GetBestHammer()
 			if not hammer then v2debug('no-hammer'); return end
-			local ability = JIKEng:ResolveAbility(hammer)
+			local ability = JadeSvc:ResolveAbility(hammer)
 			if not ability then v2debug('no-ability'); return end
-			local ready = JIKEng:GetState(ability)
+			local ready = JadeSvc:GetState(ability)
 			if ready == 'BLOCKED' then v2debug('blocked'); return end
 
-			local lease, leaseReason = Movement:Acquire('JadeInstaKillV2', Movement.Priorities.Ability, 2.5, nil, true)
-			if not lease then v2debug('no-lease', leaseReason); return end
-			local equipped = JIKEng:Equip(hammer, 0.8, function() return not JIKV2.Enabled end)
+			local lease
+			pcall(function()
+				local Movement = Runtime.Movement
+				if Movement then
+					lease = Movement:Acquire('JadeInstaKillV2', Movement.Priorities.Ability, 2.5, nil, true)
+				end
+			end)
+			if not lease then v2debug('no-lease'); return end
+
+			local equipped = JadeSvc:Equip(hammer, 0.8, function() return not JIKV2.Enabled end)
 			if not equipped then v2debug('equip-fail'); return end
 			local orig = root.CFrame
 			local targetPos = target.RootPart.Position
@@ -42287,7 +42307,7 @@ run(function()
 			), targetPos.Z)
 			root.CFrame = CFrame.new(skyPos) * root.CFrame.Rotation
 			task.wait(JIKV2.Options.PreDelay.Value)
-			local confirmed, why = JIKEng:RequestActivation(hammer, ability, targetPos, function() return not JIKV2.Enabled end)
+			local confirmed, why = JadeSvc:RequestActivation(hammer, ability, targetPos, function() return not JIKV2.Enabled end)
 			v2debug('request', {Confirmed = confirmed, Why = tostring(why)})
 			root.CFrame = orig
 			task.wait(JIKV2.Options.PostDelay.Value)
@@ -42295,10 +42315,11 @@ run(function()
 			local cooldown = JIKV2.Options.Cooldown.Value
 			while os.clock() < started + cooldown do
 				if not JIKV2.Enabled or not entitylib.isAlive then break end
-				local state = JIKEng:GetCooldownState(ability)
+				local state = JadeSvc:GetCooldownState(ability)
 				if state == 'READY' and os.clock() > started + 0.4 then break end
 				task.wait(0.1)
 			end
+			pcall(function() if lease then lease:Release() end end)
 		end, debug and debug.traceback or tostring)
 		if not ok then JIKV2.Diagnostics = tostring(err) end
 		JIKV2.Busy = false
@@ -42328,17 +42349,18 @@ run(function()
 		end,
 	})
 
-	local m = vape.Modules['JadeInstaKillV2']
+	local m = localVape.Modules['JadeInstaKillV2']
 	JIKV2.Module = m
 	if m then
-		JIKV2.Options.Range = m:CreateSlider({Name = 'Range', Min = 5, Max = 30, Default = 15, Suffix = ' studs'})
-		JIKV2.Options.SkyHeight = m:CreateSlider({Name = 'Sky height', Min = 100, Max = 500, Default = 280, Suffix = ' studs'})
-		JIKV2.Options.Interval = m:CreateSlider({Name = 'Interval', Min = 1, Max = 20, Default = 3, Suffix = ' s'})
-		JIKV2.Options.Cooldown = m:CreateSlider({Name = 'Cooldown wait', Min = 1, Max = 20, Default = 8, Suffix = 's'})
+		JIKV2.Options.Range = m:CreateSlider({Name = 'Range', Min = 5, Max = 30, Default = 15})
+		JIKV2.Options.SkyHeight = m:CreateSlider({Name = 'Sky height', Min = 100, Max = 500, Default = 280})
+		JIKV2.Options.Interval = m:CreateSlider({Name = 'Interval', Min = 1, Max = 20, Default = 3})
+		JIKV2.Options.Cooldown = m:CreateSlider({Name = 'Cooldown wait', Min = 1, Max = 20, Default = 8})
 		JIKV2.Options.PreDelay = m:CreateSlider({Name = 'Pre delay', Min = 0, Max = 0.5, Default = 0.05, Decimal = 100})
 		JIKV2.Options.PostDelay = m:CreateSlider({Name = 'Post delay', Min = 0, Max = 2.5, Default = 0.3, Decimal = 10})
 		JIKV2.Options.Debug = m:CreateToggle({Name = 'Debug'})
 	end
 end)
+
 
 notify("Aether Port", "Loaded 8 modules", 3)

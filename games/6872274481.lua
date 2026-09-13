@@ -42305,7 +42305,8 @@ run(function()
 	end
 
 	vape.Categories.Exploits:CreateModule({
-		Name = 'JadeInstaKill V2',
+		Name = 'JadeInstaKillV2',
+		DisplayName = 'JadeInstaKill V2',
 		Tooltip = 'Teleports above the sky limit, fires the Jade slam, then teleports back down. Requires the Jade hammer kit.',
 		Function = function(callback)
 			JIKV2.Generation += 1
@@ -42327,7 +42328,7 @@ run(function()
 		end,
 	})
 
-	local m = vape.Modules['JadeInstaKill V2']
+	local m = vape.Modules['JadeInstaKillV2']
 	JIKV2.Module = m
 	if m then
 		JIKV2.Options.Range = m:CreateSlider({Name = 'Range', Min = 5, Max = 30, Default = 15, Suffix = ' studs'})

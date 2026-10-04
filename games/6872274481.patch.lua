@@ -824,10 +824,10 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')-- UraniumFix_ShimPack P1 v2 — ACTrigger (vape-identity guard).
+print('[FIX] sync-done')-- UraniumFix_ShimPack P1 v3 — ACTrigger: stop on physical release + vape-identity guard.
 local g = getgenv()
-if g.UraniumACTriggerVape == shared.vape and g.UraniumACTriggerOn then print('[FIX] actrigger already-on') return end
-g.UraniumACTriggerVape = shared.vape g.UraniumACTriggerOn = true
+if g.UraniumACT3Vape == shared.vape and g.UraniumACT3On then print('[FIX] actrigger already-on') return end
+g.UraniumACT3Vape = shared.vape g.UraniumACT3On = true
 local uis = game:GetService('UserInputService')
 local lplr = game:GetService('Players').LocalPlayer
 local runId = 0
@@ -838,6 +838,7 @@ local kb = bw and bw.KeybindLoadController and bw.KeybindLoadController:getKeybi
 local a = kb and kb.keyboard and kb.keyboard.controlActions and kb.keyboard.controlActions.Attack or Enum.UserInputType.MouseButton1
 return input.UserInputType == a or input.KeyCode == a
 end
+local function heldDown() local ok, d = pcall(function() return uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) end) if not ok then return true end return d end
 local function cpsDelay()
 local cps = 7 local ac = mod()
 pcall(function() local o = ac and ac.Options and ac.Options['CPS'] if o and o.GetRandomValue then cps = o:GetRandomValue() end end)
@@ -863,7 +864,7 @@ local ok2, mi = pcall(function() return sel:getMouseInfo(0) end)
 if ok2 and mi and mi.placementPosition == mi.placementPosition then
 task.spawn(placer.placeBlock, placer, mi.placementPosition, mi)
 end end end
-uis.InputBegan:Connect(function(input, gpe) if gpe then return end if not isAttack(input) then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
+uis.InputBegan:Connect(function(input, gpe) if gpe then return end if not isAttack(input) then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled and heldDown() do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
 uis.InputEnded:Connect(function(input) if isAttack(input) then runId = runId + 1 end end)
 print('[FIX] actrigger armed')-- UraniumFix_ShimPack P2 v2 — ClutchV3 (vape-identity guard). Lasso wall + pearl link.
 local g = getgenv()

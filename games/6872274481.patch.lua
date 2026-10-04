@@ -824,4 +824,49 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')
+print('[FIX] sync-done')-- UraniumFix_ACTrigger v1 — external hold-to-click driver for AutoClicker.
+-- Upstream's own InputBegan wiring never fires (proven: 3s hold = 1 vanilla swing).
+-- This drives the same verified primitives while the module stays Enabled.
+local g = getgenv()
+if g.UraniumACTriggerOn then print('[FIX] actrigger already-on') return end
+g.UraniumACTriggerOn = true
+local uis = game:GetService('UserInputService')
+local lplr = game:GetService('Players').LocalPlayer
+local runId = 0
+local function mod() local v = shared.vape return v and v.Modules and v.Modules.AutoClicker or nil end
+local function isAttack(input)
+local bw = g.bedwars
+local kb = bw and bw.KeybindLoadController and bw.KeybindLoadController:getKeybinds()
+local a = kb and kb.keyboard and kb.keyboard.controlActions and kb.keyboard.controlActions.Attack or Enum.UserInputType.MouseButton1
+return input.UserInputType == a or input.KeyCode == a
+end
+local function cpsDelay()
+local cps = 7 local ac = mod()
+pcall(function() local o = ac and ac.Options and ac.Options['CPS'] if o and o.GetRandomValue then cps = o:GetRandomValue() end end)
+return 1 / math.max(cps or 7, 0.001)
+end
+local function step()
+local ac = mod() if not (ac and ac.Enabled) then return end
+local bw = g.bedwars if not bw then return end
+local st = g.store local h = st and st.hand if not h then return end
+if h.toolType == 'sword' then
+local atk = ac.Options and ac.Options['Attack'] if atk and not atk.Enabled then return end
+local sc = bw.SwordController if not sc or sc.disableSwingState then return end
+if lplr:GetAttribute('IsCasting') then return end
+local meta = h.tool ~= nil and bw.ItemMeta[h.tool.Name] or nil
+if not (meta and meta.sword and meta.sword.chargedAttack == nil) then return end
+sc:swingSwordAtMouse(0.39)
+elseif h.toolType == 'block' then
+local plc = ac.Options and ac.Options['Place Blocks'] if plc and not plc.Enabled then return end
+local bpc = bw.BlockPlacementController local placer = bpc and bpc.blockPlacer if not placer then return end
+local ok, sel = pcall(function() return placer.clientManager:getBlockSelector() end)
+if not ok or not sel then return end
+local ok2, mi = pcall(function() return sel:getMouseInfo(0) end)
+if ok2 and mi and mi.placementPosition == mi.placementPosition then
+task.spawn(placer.placeBlock, placer, mi.placementPosition, mi)
+end
+end
+end
+uis.InputBegan:Connect(function(input, gpe) if gpe then return end if not isAttack(input) then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
+uis.InputEnded:Connect(function(input) if isAttack(input) then runId = runId + 1 end end)
+print('[FIX] actrigger armed')

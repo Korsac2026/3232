@@ -910,7 +910,7 @@ local function isLassoPart(inst) local ok, r = pcall(function() if inst:IsA('Rop
 local function watchCharacter(ch) if not ch then return end for _, d in ipairs(ch:GetDescendants()) do if isLassoPart(d) then wallAgainstLasso() break end end ch.DescendantAdded:Connect(function(d) if clutchOn() and isLassoPart(d) then print('[FIX] clutchv3 lasso-grab') wallAgainstLasso() end end) end
 if lplr.Character then task.spawn(function() pcall(watchCharacter, lplr.Character) end) end
 lplr.CharacterAdded:Connect(function(ch) task.wait(1) pcall(watchCharacter, ch) end)
-task.spawn(function() while true do local c = mod('Clutch') local ap = mod('AutoPearl') if c and c.Enabled and ap and not ap.Enabled then pcall(function() ap:Toggle(true) end) print('[FIX] clutchv3 pearl-link on') end task.wait(2) end end)
+-- pearl-link removed: AutoPearl places blocks on any 15+ fall (no Limit). Manual toggle only.
 print('[FIX] clutchv3 armed')-- UraniumFix_ShimPack P3 v3 — DaveyBrake ext (no module). Kills slide after ANY cannon launch.
 local g = getgenv()
 if g.UraniumDaveyBrakeVape == shared.vape and g.UraniumDaveyBrakeOn then print('[FIX] daveybrake already-on') return end
@@ -942,17 +942,20 @@ local Remotes = (function() local ok, m = pcall(function() return require(rs.TS.
 local function nearestEnemy(fromPos, maxD) local best, bestD = nil, maxD or 150 for _, p in ipairs(game:GetService('Players'):GetPlayers()) do if p ~= lplr then local ch = p.Character local hrp = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if hrp and hum and hum.Health > 0 then if lplr.Team == nil or p.Team ~= lplr.Team then local d = (hrp.Position - fromPos).Magnitude if d < bestD then best, bestD = hrp, d end end end end end return best end
 local function sessionCannon() local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if not root then return nil end local best, bestD = nil, 14 for _, m in ipairs(cs:GetTagged('cannon')) do if m:IsA('Model') or m:IsA('BasePart') then local pos = (m:IsA('Model') and m:GetPivot().Position or m.Position) local d = (pos - root.Position).Magnitude if d < bestD then best, bestD = m, d end end end return best end
 task.spawn(function() while true do local bw = g.bedwars local cc = bw and bw.CannonController if cc and cc.aiming then local cannon = sessionCannon() if cannon then local cpos = (cannon:IsA('Model') and cannon:GetPivot().Position or cannon.Position) local target = nearestEnemy(cpos, 150) if target then local dir = (target.Position - cpos) if dir.Magnitude > 1 then dir = dir.Unit local bp = bw.BlockController and bw.BlockController:getBlockPosition(cpos) local cli = Remotes and Remotes.default and Remotes.default.Client if bp and cli then local ok = pcall(function() cli:Get('AimCannon'):SendToServer({cannonBlockPos = bp, lookVector = dir}) end) if ok then g.UraniumAimCount = g.UraniumAimCount + 1 end end end end end end task.wait(0.15) end end)
-print('[FIX] aimassist armed')-- UraniumFix_ShimPack P6 — void double-block safety (no module). Backup when falling hard with no ground.
+print('[FIX] aimassist armed')-- P6 v2 — void double-block (Limit-honored, support-verified).
 local g = getgenv()
 if g.UraniumDoubleBlockVape == shared.vape and g.UraniumDoubleBlockOn then print('[FIX] doubleblock already-on') return end
 g.UraniumDoubleBlockVape = shared.vape g.UraniumDoubleBlockOn = true
 local lplr = game:GetService('Players').LocalPlayer
-local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.RespectCanCollide = true
 local function clutchOn() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch return c ~= nil and c.Enabled end
-local function woolCount() local n = 0 local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') then n = n + (it.amount or 0) end end return n end
+local function limitOk() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch local o = c and c.Options and c.Options['Limit to items'] if o and o.Enabled then local st = g.store local h = st and st.hand return h ~= nil and h.toolType == 'block' end return true end
 local function roundPos(p) return Vector3.new(math.round(p.X / 3) * 3, math.round(p.Y / 3) * 3, math.round(p.Z / 3) * 3) end
+local function woolType() local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then return it.itemType end end return nil end
+local function cellState(bc, gp) local ok, st = pcall(bc.getStore, bc) if not ok or not st then return nil end local ok2, b = pcall(st.getBlockAt, st, gp) if not ok2 then return nil end return b == nil end
+local function hasSupport(bc, gp) local offs = {Vector3.new(3, 0, 0), Vector3.new(-3, 0, 0), Vector3.new(0, 3, 0), Vector3.new(0, -3, 0), Vector3.new(0, 0, 3), Vector3.new(0, 0, -3)} for _, o in ipairs(offs) do local s = cellState(bc, gp + o) if s == true then return true end if s == nil then return nil end end return false end
+local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.RespectCanCollide = true
 local lastCD = 0
-task.spawn(function() while true do if clutchOn() and os.clock() - lastCD > 5 then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root and root.AssemblyLinearVelocity.Y < -45 then params.FilterDescendantsInstances = {ch} local hit = workspace:Raycast(root.Position, Vector3.new(0, -40, 0), params) if not hit and woolCount() >= 2 then local bw = g.bedwars local bc = bw and bw.BlockController if bc and bw.placeBlock then lastCD = os.clock() local wool = nil local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then wool = it.itemType break end end if wool then task.spawn(function() for _, off in ipairs({Vector3.new(0, 0, 0), Vector3.new(0, -3, 0)}) do local target = roundPos(root.Position - Vector3.new(0, 3, 0) + off) local ok, gp = pcall(bc.getBlockPosition, bc, target) if ok then local ok2, st2 = pcall(bc.getStore, bc) if ok2 and st2 then local ok3, b = pcall(st2.getBlockAt, st2, gp) if ok3 and b == nil then pcall(bw.placeBlock, gp * 3, wool) end end end task.wait(0.35) end print('[FIX] doubleblock placed') end) end end end end end task.wait(0.2) end end)
+task.spawn(function() while true do if clutchOn() and limitOk() and os.clock() - lastCD > 5 then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if root and hum and hum.FloorMaterial == Enum.Material.Air and root.AssemblyLinearVelocity.Y < -45 then params.FilterDescendantsInstances = {ch} local down = workspace:Raycast(root.Position, Vector3.new(0, -40, 0), params) if not down then local bw = g.bedwars local bc = bw and bw.BlockController local wool = woolType() if bc and bw.placeBlock and wool then lastCD = os.clock() for _, off in ipairs({Vector3.new(0, 0, 0), Vector3.new(0, -3, 0)}) do local target = roundPos(root.Position - Vector3.new(0, 3, 0) + off) local ok, gp = pcall(bc.getBlockPosition, bc, target) if ok and cellState(bc, gp) == false and hasSupport(bc, gp) == true then pcall(bw.placeBlock, gp * 3, wool) task.wait(0.3) end end print('[FIX] doubleblock placed') end end end end task.wait(0.2) end end)
 print('[FIX] doubleblock armed')-- P7 v2 — tower-up + suffocate (Limit-honored). Bridge moved to P8.
 local g = getgenv()
 if g.UraniumP7Vape == shared.vape and g.UraniumP7On then print('[FIX] p7 already-on') return end
@@ -1094,7 +1097,14 @@ if oldHand and oldHand.tool then pcall(function() hum:EquipTool(oldHand.tool) en
 print('[FIX] emergency pearl')
 task.wait(5) end end end end
 task.wait(0.2) end end)
-print('[FIX] p8 armed')-- BedPlates3D v2 — modern bed replica (frame/mattress/blanket/pillow/legs, team color) + shell boxes.
+print('[FIX] p8 armed')-- P10 — NPC registrar (no module). Registers training dummies/monsters into bundle entitylib.
+local g = getgenv()
+if g.UraniumNPCRegVape == shared.vape and g.UraniumNPCRegOn then print('[FIX] npcreg already-on') return end
+g.UraniumNPCRegVape = shared.vape g.UraniumNPCRegOn = true
+local Players = game:GetService('Players')
+local function regAll() local v = shared.vape local el = v and v.Libraries and v.Libraries.entity if not el or type(el.addEntity) ~= 'function' then return 0 end local n = 0 for _, d in ipairs(workspace:GetDescendants()) do if d:IsA('Model') and d:FindFirstChildOfClass('Humanoid') and Players:GetPlayerFromCharacter(d) == nil then local nm = d.Name:lower() if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') or nm:find('merchant') == nil and nm:find('shop') == nil then if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') then if pcall(function() el.addEntity(d) end) then n = n + 1 end end end end end return n end
+task.spawn(function() task.wait(3) local n = regAll() print('[FIX] npcreg registered ' .. tostring(n)) end)
+print('[FIX] npcreg armed')-- BedPlates3D v2 — modern bed replica (frame/mattress/blanket/pillow/legs, team color) + shell boxes.
 local g = getgenv()
 g.vape = shared.vape
 local cs = game:GetService('CollectionService')
@@ -1165,11 +1175,4 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')-- P10 — NPC registrar (no module). Registers training dummies/monsters into bundle entitylib.
-local g = getgenv()
-if g.UraniumNPCRegVape == shared.vape and g.UraniumNPCRegOn then print('[FIX] npcreg already-on') return end
-g.UraniumNPCRegVape = shared.vape g.UraniumNPCRegOn = true
-local Players = game:GetService('Players')
-local function regAll() local v = shared.vape local el = v and v.Libraries and v.Libraries.entity if not el or type(el.addEntity) ~= 'function' then return 0 end local n = 0 for _, d in ipairs(workspace:GetDescendants()) do if d:IsA('Model') and d:FindFirstChildOfClass('Humanoid') and Players:GetPlayerFromCharacter(d) == nil then local nm = d.Name:lower() if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') or nm:find('merchant') == nil and nm:find('shop') == nil then if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') then if pcall(function() el.addEntity(d) end) then n = n + 1 end end end end end return n end
-task.spawn(function() task.wait(3) local n = regAll() print('[FIX] npcreg registered ' .. tostring(n)) end)
-print('[FIX] npcreg armed')
+print('[FIX] sync-done')

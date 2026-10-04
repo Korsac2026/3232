@@ -779,3 +779,49 @@ run(function()
 end)
 print('[FIX] register-clutch ' .. ((shared.vape.Modules ~= nil and shared.vape.Modules.Clutch ~= nil) and 'PASS' or 'FAIL'))
 print('[FIX] done')
+-- UraniumFix_StoreSync v1 — keeps getgenv().store live (hand+toolType, inventory, match).
+local g = getgenv()
+g.vape = shared.vape
+local lplr = game:GetService('Players').LocalPlayer
+local ItemMeta = (function() local ok, m = pcall(function() return require(game:GetService('ReplicatedStorage').TS.item['item-meta']) end) return (ok and m and m.items) or nil end)()
+print('[FIX] sync-meta ' .. ((ItemMeta ~= nil) and 'PASS' or 'FAIL'))
+local ClientStore = (function() local ok, s = pcall(function() return require(lplr.PlayerScripts.TS.ui.store).ClientStore end) return ok and s or nil end)()
+if ClientStore == nil then warn('[FIX] sync-store FAIL | no ClientStore') return end
+local function toolTypeOf(itemType, meta)
+if not itemType then return nil end
+if meta then if meta.sword then return 'sword' end if meta.block then return 'block' end end
+if tostring(itemType):find('bow') then return 'bow' end
+return nil
+end
+local Store = g.store
+if type(Store) ~= 'table' then Store = {} g.store = Store end
+task.spawn(function()
+while true do
+local ok, st = pcall(function() return ClientStore:getState() end)
+if ok and type(st) == 'table' then
+local oi = st.Inventory and st.Inventory.observedInventory
+local inv = oi and oi.inventory
+if inv then
+Store.inventory = Store.inventory or {}
+Store.inventory.inventory = Store.inventory.inventory or {}
+Store.inventory.inventory.items = inv.items or {}
+Store.inventory.inventory.armor = inv.armor or {}
+Store.inventory.hotbar = oi.hotbar or {}
+Store.inventory.hotbarSlot = oi.hotbarSlot or 0
+local h = inv.hand
+if type(h) == 'table' then
+local meta = ItemMeta and h.itemType and ItemMeta[h.itemType] or nil
+Store.hand = { itemType = h.itemType, amount = h.amount, tool = h.tool, toolType = toolTypeOf(h.itemType, meta) }
+else
+Store.hand = nil
+end
+end
+if st.Game then Store.matchState = st.Game.matchState or 0 Store.queueType = st.Game.queueType or Store.queueType end
+end
+task.wait(0.5)
+end
+end)
+task.wait(1)
+local h = Store.hand
+print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
+print('[FIX] sync-done')

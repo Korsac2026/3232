@@ -966,7 +966,7 @@ local function clutchOn() local v = shared.vape local c = v and v.Modules and v.
 local function limitOk() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch local o = c and c.Options and c.Options['Limit to items'] if o and o.Enabled then local st = g.store local h = st and st.hand return h ~= nil and h.toolType == 'block' end return true end
 local function roundPos(p) return Vector3.new(math.round(p.X / 3) * 3, math.round(p.Y / 3) * 3, math.round(p.Z / 3) * 3) end
 local function tryPlace(worldPos) if not limitOk() then return false end local bw = g.bedwars local bc = bw and bw.BlockController if not bc or not bw.placeBlock then return false end local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} local wool = nil for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then wool = it.itemType break end end if not wool then return false end local ok, gp = pcall(bc.getBlockPosition, bc, worldPos) if not ok then return false end local ok2, st2 = pcall(bc.getStore, bc) if not ok2 or not st2 then return false end local ok3, b = pcall(st2.getBlockAt, st2, gp) if not ok3 or b ~= nil then return false end local ok4 = pcall(bw.placeBlock, gp * 3, wool) return ok4 end
-task.spawn(function() while true do if clutchOn() then local ok, down = pcall(function() return uis:IsKeyDown(Enum.KeyCode.Space) end) local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if ok and down and root and hum then local tp = RaycastParams.new() tp.FilterType = Enum.RaycastFilterType.Exclude tp.RespectCanCollide = true tp.FilterDescendantsInstances = {ch} local gd = workspace:Raycast(root.Position, Vector3.new(0, -8, 0), tp) local air = hum.FloorMaterial == Enum.Material.Air if (not air or math.abs(root.AssemblyLinearVelocity.Y) < 8) and not gd then local below = roundPos(root.Position + Vector3.new(0, -3, 0)) if tryPlace(below) then task.wait(0.25) end end end end task.wait(0.12) end end)
+-- tower removed (felt like infinite jump).
 local suffCD = {}
 task.spawn(function() while true do if clutchOn() then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root then for _, p in ipairs(game:GetService('Players'):GetPlayers()) do if p ~= lplr then local ec = p.Character local ehr = ec and ec:FindFirstChild('HumanoidRootPart') local ehum = ec and ec:FindFirstChildOfClass('Humanoid') if ehr and ehum and ehum.Health > 0 then if lplr.Team == nil or p.Team ~= lplr.Team then local d = (ehr.Position - root.Position).Magnitude if d < 8 and (os.clock() - (suffCD[p.Name] or 0)) > 5 then suffCD[p.Name] = os.clock() task.spawn(function() local f = roundPos(ehr.Position) tryPlace(f) task.wait(0.2) local h = roundPos(ehr.Position + Vector3.new(0, 3, 0)) tryPlace(h) print('[FIX] suffocate ' .. tostring(p.Name)) end) end end end end end end end task.wait(0.3) end end)
 print('[FIX] p7 armed')-- P8 v2 — bridge/support-first + Limit honor + emergency pearl. Readable build.
@@ -1058,9 +1058,10 @@ local ok, gp = pcall(bc.getBlockPosition, bc, tp)
 if ok and (root.Position - tp).Magnitude < 14 then cells[#cells+1] = gp end end
 for idx = #cells, 1, -1 do
 local gp = cells[idx]
-if cellState(bc, gp) == false and hasSupport(bc, gp) == true then
+if cellState(bc, gp) == false then
 local wool = woolType()
-if wool then pcall(bw.placeBlock, gp * 3, wool) task.wait(0.12) end end end end end end end
+if wool then pcall(bw.placeBlock, gp * 3, wool) task.wait(0.1) end end end print('[FIX] bridge placed')
+end end end end
 task.wait(0.12) end end)
 task.spawn(function()
 while true do

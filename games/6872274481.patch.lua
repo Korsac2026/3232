@@ -824,14 +824,15 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')-- UraniumFix_ShimPack P1 v3 — ACTrigger: stop on physical release + vape-identity guard.
+print('[FIX] sync-done')-- P1 FINAL — ACTrigger: no gpe filter (layer check), physical release, vape guard.
 local g = getgenv()
-if g.UraniumACT3Vape == shared.vape and g.UraniumACT3On then print('[FIX] actrigger already-on') return end
-g.UraniumACT3Vape = shared.vape g.UraniumACT3On = true
+if g.UraniumACTFVape == shared.vape and g.UraniumACTFOn then print('[FIX] actrigger already-on') return end
+g.UraniumACTFVape = shared.vape g.UraniumACTFOn = true
 local uis = game:GetService('UserInputService')
 local lplr = game:GetService('Players').LocalPlayer
 local runId = 0
 local function mod() local v = shared.vape return v and v.Modules and v.Modules.AutoClicker or nil end
+local function menuOpen() local bw = g.bedwars if not bw or not bw.AppController then return false end local ok, o = pcall(function() return bw.AppController:isLayerOpen(bw.UILayers.MAIN) end) return ok and o end
 local function isAttack(input)
 local bw = g.bedwars
 local kb = bw and bw.KeybindLoadController and bw.KeybindLoadController:getKeybinds()
@@ -846,6 +847,7 @@ return 1 / math.max(cps or 7, 0.001)
 end
 local function step()
 local ac = mod() if not (ac and ac.Enabled) then return end
+if menuOpen() then return end
 local bw = g.bedwars if not bw then return end
 local st = g.store local h = st and st.hand if not h then return end
 if h.toolType == 'sword' then
@@ -864,13 +866,15 @@ local ok2, mi = pcall(function() return sel:getMouseInfo(0) end)
 if ok2 and mi and mi.placementPosition == mi.placementPosition then
 task.spawn(placer.placeBlock, placer, mi.placementPosition, mi)
 end end end
-uis.InputBegan:Connect(function(input, gpe) if gpe then return end if not isAttack(input) then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled and heldDown() do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
+local function limitOk() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch local o = c and c.Options and c.Options['Limit to items'] if o and o.Enabled then local st = g.store local h = st and st.hand return h ~= nil and h.toolType == 'block' end return true end
+uis.InputBegan:Connect(function(input) if not isAttack(input) then return end if menuOpen() then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled and heldDown() do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
 uis.InputEnded:Connect(function(input) if isAttack(input) then runId = runId + 1 end end)
-print('[FIX] actrigger armed')-- UraniumFix_ShimPack P2 v2 — ClutchV3 (vape-identity guard). Lasso wall + pearl link.
+print('[FIX] actrigger armed')-- P2 v2 — ClutchV3 (vape guard). Lasso wall (Limit-honored) + AutoPearl link.
 local g = getgenv()
 if g.UraniumClutchV3Vape == shared.vape and g.UraniumClutchV3On then print('[FIX] clutchv3 already-on') return end
 g.UraniumClutchV3Vape = shared.vape g.UraniumClutchV3On = true
 local lplr = game:GetService('Players').LocalPlayer
+local function limitOk() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch local o = c and c.Options and c.Options['Limit to items'] if o and o.Enabled then local st = g.store local h = st and st.hand return h ~= nil and h.toolType == 'block' end return true end
 local function mod(n) local v = shared.vape return v and v.Modules and v.Modules[n] or nil end
 local function clutchOn() local c = mod('Clutch') return c ~= nil and c.Enabled end
 local function getWool() local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then return it.itemType end end return nil end
@@ -879,6 +883,7 @@ local function cellEmpty(bc, gp) local ok, st = pcall(bc.getStore, bc) if not ok
 local lastWall = 0
 local function wallAgainstLasso()
 if os.clock() - lastWall < 3 then return end
+if not limitOk() then return end
 local bw = g.bedwars if not bw or not bw.placeBlock or not bw.BlockController then return end
 local wool = getWool() if not wool then return end
 local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if not root then return end
@@ -925,52 +930,7 @@ local function swingOnce(why) local t = pickTool() if not t then return end if o
 local function nearRoot(model, maxD) local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if not root then return false end local pos = (model:IsA('Model') and model:GetPivot().Position or model.Position) return (pos - root.Position).Magnitude <= (maxD or 14) end
 cs:GetInstanceAddedSignal('cannon'):Connect(function(m) task.wait(0.5) if nearRoot(m, 14) then swingOnce('place') end end)
 task.spawn(function() while true do local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if root and hum then local sp = root.AssemblyLinearVelocity.Magnitude local air = hum.FloorMaterial == Enum.Material.Air if air and sp > 65 then launched = true elseif launched and not air then launched = false swingOnce('land') end end task.wait(0.25) end end)
-print('[FIX] autodavey armed')-- UraniumFix_StoreSync v1 — keeps getgenv().store live (hand+toolType, inventory, match).
-local g = getgenv()
-g.vape = shared.vape
-local lplr = game:GetService('Players').LocalPlayer
-local ItemMeta = (function() local ok, m = pcall(function() return require(game:GetService('ReplicatedStorage').TS.item['item-meta']) end) return (ok and m and m.items) or nil end)()
-print('[FIX] sync-meta ' .. ((ItemMeta ~= nil) and 'PASS' or 'FAIL'))
-local ClientStore = (function() local ok, s = pcall(function() return require(lplr.PlayerScripts.TS.ui.store).ClientStore end) return ok and s or nil end)()
-if ClientStore == nil then warn('[FIX] sync-store FAIL | no ClientStore') return end
-local function toolTypeOf(itemType, meta)
-if not itemType then return nil end
-if meta then if meta.sword then return 'sword' end if meta.block then return 'block' end end
-if tostring(itemType):find('bow') then return 'bow' end
-return nil
-end
-local Store = g.store
-if type(Store) ~= 'table' then Store = {} g.store = Store end
-task.spawn(function()
-while true do
-local ok, st = pcall(function() return ClientStore:getState() end)
-if ok and type(st) == 'table' then
-local oi = st.Inventory and st.Inventory.observedInventory
-local inv = oi and oi.inventory
-if inv then
-Store.inventory = Store.inventory or {}
-Store.inventory.inventory = Store.inventory.inventory or {}
-Store.inventory.inventory.items = inv.items or {}
-Store.inventory.inventory.armor = inv.armor or {}
-Store.inventory.hotbar = oi.hotbar or {}
-Store.inventory.hotbarSlot = oi.hotbarSlot or 0
-local h = inv.hand
-if type(h) == 'table' then
-local meta = ItemMeta and h.itemType and ItemMeta[h.itemType] or nil
-Store.hand = { itemType = h.itemType, amount = h.amount, tool = h.tool, toolType = toolTypeOf(h.itemType, meta) }
-else
-Store.hand = nil
-end
-end
-if st.Game then Store.matchState = st.Game.matchState or 0 Store.queueType = st.Game.queueType or Store.queueType end
-end
-task.wait(0.5)
-end
-end)
-task.wait(1)
-local h = Store.hand
-print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')-- UraniumFix_ShimPack P5 — Cannon enemy-aim assist (no module). While aiming, points cannon at nearest enemy.
+print('[FIX] autodavey armed')-- UraniumFix_ShimPack P5 — Cannon enemy-aim assist (no module). While aiming, points cannon at nearest enemy.
 local g = getgenv()
 if g.UraniumAimAssistVape == shared.vape and g.UraniumAimAssistOn then print('[FIX] aimassist already-on') return end
 g.UraniumAimAssistVape = shared.vape g.UraniumAimAssistOn = true
@@ -993,20 +953,16 @@ local function woolCount() local n = 0 local st = g.store local items = st and s
 local function roundPos(p) return Vector3.new(math.round(p.X / 3) * 3, math.round(p.Y / 3) * 3, math.round(p.Z / 3) * 3) end
 local lastCD = 0
 task.spawn(function() while true do if clutchOn() and os.clock() - lastCD > 5 then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root and root.AssemblyLinearVelocity.Y < -45 then params.FilterDescendantsInstances = {ch} local hit = workspace:Raycast(root.Position, Vector3.new(0, -40, 0), params) if not hit and woolCount() >= 2 then local bw = g.bedwars local bc = bw and bw.BlockController if bc and bw.placeBlock then lastCD = os.clock() local wool = nil local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then wool = it.itemType break end end if wool then task.spawn(function() for _, off in ipairs({Vector3.new(0, 0, 0), Vector3.new(0, -3, 0)}) do local target = roundPos(root.Position - Vector3.new(0, 3, 0) + off) local ok, gp = pcall(bc.getBlockPosition, bc, target) if ok then local ok2, st2 = pcall(bc.getStore, bc) if ok2 and st2 then local ok3, b = pcall(st2.getBlockAt, st2, gp) if ok3 and b == nil then pcall(bw.placeBlock, gp * 3, wool) end end end task.wait(0.35) end print('[FIX] doubleblock placed') end) end end end end end task.wait(0.2) end end)
-print('[FIX] doubleblock armed')-- UraniumFix_ShimPack P7 — bridge-to-wall + tower-up + suffocate (no module, gated on Clutch).
+print('[FIX] doubleblock armed')-- P7 v2 — tower-up + suffocate (Limit-honored). Bridge moved to P8.
 local g = getgenv()
 if g.UraniumP7Vape == shared.vape and g.UraniumP7On then print('[FIX] p7 already-on') return end
 g.UraniumP7Vape = shared.vape g.UraniumP7On = true
 local lplr = game:GetService('Players').LocalPlayer
 local uis = game:GetService('UserInputService')
 local function clutchOn() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch return c ~= nil and c.Enabled end
+local function limitOk() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch local o = c and c.Options and c.Options['Limit to items'] if o and o.Enabled then local st = g.store local h = st and st.hand return h ~= nil and h.toolType == 'block' end return true end
 local function roundPos(p) return Vector3.new(math.round(p.X / 3) * 3, math.round(p.Y / 3) * 3, math.round(p.Z / 3) * 3) end
-local function woolType() local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then return it.itemType end end return nil end
-local function tryPlace(worldPos) local bw = g.bedwars local bc = bw and bw.BlockController if not bc or not bw.placeBlock then return false end local wool = woolType() if not wool then return false end local ok, gp = pcall(bc.getBlockPosition, bc, worldPos) if not ok then return false end local ok2, st = pcall(bc.getStore, bc) if not ok2 or not st then return false end local ok3, b = pcall(st.getBlockAt, st, gp) if not ok3 or b ~= nil then return false end local ok4 = pcall(bw.placeBlock, gp * 3, wool) return ok4 end
-local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.RespectCanCollide = true
-local function nearestWallDir(root) params.FilterDescendantsInstances = {lplr.Character} local bestD, bestDir = 40, nil local dirs = {Vector3.new(1,0,0), Vector3.new(-1,0,0), Vector3.new(0,0,1), Vector3.new(0,0,-1), Vector3.new(1,0,1).Unit, Vector3.new(1,0,-1).Unit, Vector3.new(-1,0,1).Unit, Vector3.new(-1,0,-1).Unit} for _, d in ipairs(dirs) do local hit = workspace:Raycast(root.Position + Vector3.new(0, 1, 0), d * 40, params) if hit and hit.Distance < bestD then bestD, bestDir = hit.Distance, d end end return bestDir end
-local function moveDir(root, hum) local md = hum.MoveDirection if md.Magnitude > 0.2 then return Vector3.new(md.X, 0, md.Z).Unit end return nil end
-task.spawn(function() while true do if clutchOn() then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if root and hum then local air = hum.FloorMaterial == Enum.Material.Air local vy = root.AssemblyLinearVelocity.Y if air and vy < -12 then params.FilterDescendantsInstances = {ch} local down = workspace:Raycast(root.Position, Vector3.new(0, -30, 0), params) if not down then local dir = moveDir(root, hum) or nearestWallDir(root) or root.CFrame.LookVector * Vector3.new(1, 0, 1) if dir.Magnitude > 0.01 then dir = Vector3.new(dir.X, 0, dir.Z).Unit for k = 1, 4 do local ahead = roundPos(root.Position + dir * (3 * k) + Vector3.new(0, -1, 0)) if tryPlace(ahead) then break end task.wait(0.05) end end end end end end task.wait(0.22) end end)
+local function tryPlace(worldPos) if not limitOk() then return false end local bw = g.bedwars local bc = bw and bw.BlockController if not bc or not bw.placeBlock then return false end local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} local wool = nil for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then wool = it.itemType break end end if not wool then return false end local ok, gp = pcall(bc.getBlockPosition, bc, worldPos) if not ok then return false end local ok2, st2 = pcall(bc.getStore, bc) if not ok2 or not st2 then return false end local ok3, b = pcall(st2.getBlockAt, st2, gp) if not ok3 or b ~= nil then return false end local ok4 = pcall(bw.placeBlock, gp * 3, wool) return ok4 end
 task.spawn(function() while true do if clutchOn() then local ok, down = pcall(function() return uis:IsKeyDown(Enum.KeyCode.Space) end) local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if ok and down and root and hum then local air = hum.FloorMaterial == Enum.Material.Air if not air or math.abs(root.AssemblyLinearVelocity.Y) < 8 then local below = roundPos(root.Position + Vector3.new(0, -3, 0)) if tryPlace(below) then task.wait(0.25) end end end end task.wait(0.12) end end)
 local suffCD = {}
 task.spawn(function() while true do if clutchOn() then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root then for _, p in ipairs(game:GetService('Players'):GetPlayers()) do if p ~= lplr then local ec = p.Character local ehr = ec and ec:FindFirstChild('HumanoidRootPart') local ehum = ec and ec:FindFirstChildOfClass('Humanoid') if ehr and ehum and ehum.Health > 0 then if lplr.Team == nil or p.Team ~= lplr.Team then local d = (ehr.Position - root.Position).Magnitude if d < 8 and (os.clock() - (suffCD[p.Name] or 0)) > 5 then suffCD[p.Name] = os.clock() task.spawn(function() local f = roundPos(ehr.Position) tryPlace(f) task.wait(0.2) local h = roundPos(ehr.Position + Vector3.new(0, 3, 0)) tryPlace(h) print('[FIX] suffocate ' .. tostring(p.Name)) end) end end end end end end end task.wait(0.3) end end)
@@ -1138,4 +1094,49 @@ if oldHand and oldHand.tool then pcall(function() hum:EquipTool(oldHand.tool) en
 print('[FIX] emergency pearl')
 task.wait(5) end end end end
 task.wait(0.2) end end)
-print('[FIX] p8 armed')
+print('[FIX] p8 armed')-- UraniumFix_StoreSync v1 — keeps getgenv().store live (hand+toolType, inventory, match).
+local g = getgenv()
+g.vape = shared.vape
+local lplr = game:GetService('Players').LocalPlayer
+local ItemMeta = (function() local ok, m = pcall(function() return require(game:GetService('ReplicatedStorage').TS.item['item-meta']) end) return (ok and m and m.items) or nil end)()
+print('[FIX] sync-meta ' .. ((ItemMeta ~= nil) and 'PASS' or 'FAIL'))
+local ClientStore = (function() local ok, s = pcall(function() return require(lplr.PlayerScripts.TS.ui.store).ClientStore end) return ok and s or nil end)()
+if ClientStore == nil then warn('[FIX] sync-store FAIL | no ClientStore') return end
+local function toolTypeOf(itemType, meta)
+if not itemType then return nil end
+if meta then if meta.sword then return 'sword' end if meta.block then return 'block' end end
+if tostring(itemType):find('bow') then return 'bow' end
+return nil
+end
+local Store = g.store
+if type(Store) ~= 'table' then Store = {} g.store = Store end
+task.spawn(function()
+while true do
+local ok, st = pcall(function() return ClientStore:getState() end)
+if ok and type(st) == 'table' then
+local oi = st.Inventory and st.Inventory.observedInventory
+local inv = oi and oi.inventory
+if inv then
+Store.inventory = Store.inventory or {}
+Store.inventory.inventory = Store.inventory.inventory or {}
+Store.inventory.inventory.items = inv.items or {}
+Store.inventory.inventory.armor = inv.armor or {}
+Store.inventory.hotbar = oi.hotbar or {}
+Store.inventory.hotbarSlot = oi.hotbarSlot or 0
+local h = inv.hand
+if type(h) == 'table' then
+local meta = ItemMeta and h.itemType and ItemMeta[h.itemType] or nil
+Store.hand = { itemType = h.itemType, amount = h.amount, tool = h.tool, toolType = toolTypeOf(h.itemType, meta) }
+else
+Store.hand = nil
+end
+end
+if st.Game then Store.matchState = st.Game.matchState or 0 Store.queueType = st.Game.queueType or Store.queueType end
+end
+task.wait(0.5)
+end
+end)
+task.wait(1)
+local h = Store.hand
+print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
+print('[FIX] sync-done')

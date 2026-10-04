@@ -970,4 +970,27 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')
+print('[FIX] sync-done')-- UraniumFix_ShimPack P5 — Cannon enemy-aim assist (no module). While aiming, points cannon at nearest enemy.
+local g = getgenv()
+if g.UraniumAimAssistVape == shared.vape and g.UraniumAimAssistOn then print('[FIX] aimassist already-on') return end
+g.UraniumAimAssistVape = shared.vape g.UraniumAimAssistOn = true
+g.UraniumAimCount = 0
+local lplr = game:GetService('Players').LocalPlayer
+local cs = game:GetService('CollectionService')
+local rs = game:GetService('ReplicatedStorage')
+local Remotes = (function() local ok, m = pcall(function() return require(rs.TS.remotes) end) return ok and m or nil end)()
+local function nearestEnemy(fromPos, maxD) local best, bestD = nil, maxD or 150 for _, p in ipairs(game:GetService('Players'):GetPlayers()) do if p ~= lplr then local ch = p.Character local hrp = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if hrp and hum and hum.Health > 0 then if lplr.Team == nil or p.Team ~= lplr.Team then local d = (hrp.Position - fromPos).Magnitude if d < bestD then best, bestD = hrp, d end end end end end return best end
+local function sessionCannon() local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if not root then return nil end local best, bestD = nil, 14 for _, m in ipairs(cs:GetTagged('cannon')) do if m:IsA('Model') or m:IsA('BasePart') then local pos = (m:IsA('Model') and m:GetPivot().Position or m.Position) local d = (pos - root.Position).Magnitude if d < bestD then best, bestD = m, d end end end return best end
+task.spawn(function() while true do local bw = g.bedwars local cc = bw and bw.CannonController if cc and cc.aiming then local cannon = sessionCannon() if cannon then local cpos = (cannon:IsA('Model') and cannon:GetPivot().Position or cannon.Position) local target = nearestEnemy(cpos, 150) if target then local dir = (target.Position - cpos) if dir.Magnitude > 1 then dir = dir.Unit local bp = bw.BlockController and bw.BlockController:getBlockPosition(cpos) local cli = Remotes and Remotes.default and Remotes.default.Client if bp and cli then local ok = pcall(function() cli:Get('AimCannon'):SendToServer({cannonBlockPos = bp, lookVector = dir}) end) if ok then g.UraniumAimCount = g.UraniumAimCount + 1 end end end end end end task.wait(0.15) end end)
+print('[FIX] aimassist armed')-- UraniumFix_ShimPack P6 — void double-block safety (no module). Backup when falling hard with no ground.
+local g = getgenv()
+if g.UraniumDoubleBlockVape == shared.vape and g.UraniumDoubleBlockOn then print('[FIX] doubleblock already-on') return end
+g.UraniumDoubleBlockVape = shared.vape g.UraniumDoubleBlockOn = true
+local lplr = game:GetService('Players').LocalPlayer
+local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.RespectCanCollide = true
+local function clutchOn() local v = shared.vape local c = v and v.Modules and v.Modules.Clutch return c ~= nil and c.Enabled end
+local function woolCount() local n = 0 local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') then n = n + (it.amount or 0) end end return n end
+local function roundPos(p) return Vector3.new(math.round(p.X / 3) * 3, math.round(p.Y / 3) * 3, math.round(p.Z / 3) * 3) end
+local lastCD = 0
+task.spawn(function() while true do if clutchOn() and os.clock() - lastCD > 5 then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root and root.AssemblyLinearVelocity.Y < -45 then params.FilterDescendantsInstances = {ch} local hit = workspace:Raycast(root.Position, Vector3.new(0, -40, 0), params) if not hit and woolCount() >= 2 then local bw = g.bedwars local bc = bw and bw.BlockController if bc and bw.placeBlock then lastCD = os.clock() local wool = nil local st = g.store local items = st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} for _, it in pairs(items) do if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then wool = it.itemType break end end if wool then task.spawn(function() for _, off in ipairs({Vector3.new(0, 0, 0), Vector3.new(0, -3, 0)}) do local target = roundPos(root.Position - Vector3.new(0, 3, 0) + off) local ok, gp = pcall(bc.getBlockPosition, bc, target) if ok then local ok2, st2 = pcall(bc.getStore, bc) if ok2 and st2 then local ok3, b = pcall(st2.getBlockAt, st2, gp) if ok3 and b == nil then pcall(bw.placeBlock, gp * 3, wool) end end end task.wait(0.35) end print('[FIX] doubleblock placed') end) end end end end end task.wait(0.2) end end)
+print('[FIX] doubleblock armed')

@@ -824,13 +824,10 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')-- UraniumFix_ShimPack v1 — per-runtime guards (re-arms after teleports).
--- Replaces the boolean-guard shims. Bodies identical to live-verified versions.
+print('[FIX] sync-done')-- UraniumFix_ShimPack P1 v2 — ACTrigger (vape-identity guard).
 local g = getgenv()
-local JID = tostring(game.JobId)
--- ============ [1] ACTrigger ============
-if g.UraniumACTriggerOn == JID then print('[FIX] actrigger already-on') else
-g.UraniumACTriggerOn = JID
+if g.UraniumACTriggerVape == shared.vape and g.UraniumACTriggerOn then print('[FIX] actrigger already-on') return end
+g.UraniumACTriggerVape = shared.vape g.UraniumACTriggerOn = true
 local uis = game:GetService('UserInputService')
 local lplr = game:GetService('Players').LocalPlayer
 local runId = 0
@@ -868,12 +865,10 @@ task.spawn(placer.placeBlock, placer, mi.placementPosition, mi)
 end end end
 uis.InputBegan:Connect(function(input, gpe) if gpe then return end if not isAttack(input) then return end local ac = mod() if not (ac and ac.Enabled) then return end runId = runId + 1 local mine = runId print('[FIX] actrigger start') task.spawn(function() task.wait(cpsDelay()) while mine == runId and mod() and mod().Enabled do local ok, err = pcall(step) if not ok then warn('[FIX] actrigger: ' .. tostring(err)) break end task.wait(cpsDelay()) end end) end)
 uis.InputEnded:Connect(function(input) if isAttack(input) then runId = runId + 1 end end)
-print('[FIX] actrigger armed')
-end-- UraniumFix_ClutchV3 v3 — JID guard + lasso wall (retry) + AutoPearl link.
+print('[FIX] actrigger armed')-- UraniumFix_ShimPack P2 v2 — ClutchV3 (vape-identity guard). Lasso wall + pearl link.
 local g = getgenv()
-local JID = tostring(game.JobId)
-if g.UraniumClutchV3On == JID then print('[FIX] clutchv3 already-on') return end
-g.UraniumClutchV3On = JID
+if g.UraniumClutchV3Vape == shared.vape and g.UraniumClutchV3On then print('[FIX] clutchv3 already-on') return end
+g.UraniumClutchV3Vape = shared.vape g.UraniumClutchV3On = true
 local lplr = game:GetService('Players').LocalPlayer
 local function mod(n) local v = shared.vape return v and v.Modules and v.Modules[n] or nil end
 local function clutchOn() local c = mod('Clutch') return c ~= nil and c.Enabled end
@@ -910,11 +905,10 @@ local function watchCharacter(ch) if not ch then return end for _, d in ipairs(c
 if lplr.Character then task.spawn(function() pcall(watchCharacter, lplr.Character) end) end
 lplr.CharacterAdded:Connect(function(ch) task.wait(1) pcall(watchCharacter, ch) end)
 task.spawn(function() while true do local c = mod('Clutch') local ap = mod('AutoPearl') if c and c.Enabled and ap and not ap.Enabled then pcall(function() ap:Toggle(true) end) print('[FIX] clutchv3 pearl-link on') end task.wait(2) end end)
-print('[FIX] clutchv3 armed')-- UraniumFix_ShimPack P3 — DaveyAim v2 (JID guard). Aim assist + brake-on-land.
+print('[FIX] clutchv3 armed')-- UraniumFix_ShimPack P3 v2 — DaveyAim (vape-identity guard). Aim assist + brake.
 local g = getgenv()
-local JID = tostring(game.JobId)
-if g.UraniumDaveyAimOn == JID then print('[FIX] daveyaim already-on') return end
-g.UraniumDaveyAimOn = JID
+if g.UraniumDaveyAimVape == shared.vape and g.UraniumDaveyAimOn then print('[FIX] daveyaim already-on') return end
+g.UraniumDaveyAimVape = shared.vape g.UraniumDaveyAimOn = true
 g.vape = shared.vape
 local lplr = game:GetService('Players').LocalPlayer
 local cs = game:GetService('CollectionService')
@@ -927,11 +921,10 @@ local function sessionCannon() local ch = lplr.Character local root = ch and ch:
 local function aimStep() local bw = g.bedwars if not bw then return end local cc = bw.CannonController if not cc or not cc.aiming then return end local cannon = sessionCannon() if not cannon then return end local cpos = (cannon:IsA('Model') and cannon:GetPivot().Position or cannon.Position) local target = nearestEnemy(cpos, 150) if not target then return end local dir = (target.Position - cpos) if dir.Magnitude < 1 then return end dir = dir.Unit local bp = bw.BlockController and bw.BlockController:getBlockPosition(cpos) if not bp then return end local cli = Remotes and Remotes.default and Remotes.default.Client if not cli then return end pcall(function() cli:Get('AimCannon'):SendToServer({cannonBlockPos = bp, lookVector = dir}) end) end
 local function brakeStep() local ch = lplr.Character if not ch then launched = false return end local root = ch:FindFirstChild('HumanoidRootPart') local hum = ch:FindFirstChildOfClass('Humanoid') if not root or not hum then return end local sp = root.AssemblyLinearVelocity.Magnitude local air = hum.FloorMaterial == Enum.Material.Air if air and sp > 65 then launched = true return end if launched and not air then launched = false if os.clock() - brakeCD < 2 then return end local flat = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude if flat < 25 then return end brakeCD = os.clock() task.spawn(function() local t0 = os.clock() while os.clock() - t0 < 1 do local r2 = lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart') if not r2 then break end local v = r2.AssemblyLinearVelocity r2.AssemblyLinearVelocity = Vector3.new(v.X * 0.82, v.Y, v.Z * 0.82) task.wait() end end) end end
 task.spawn(function() local vape = shared.vape DaveyAim = vape.Categories.Combat:CreateModule({Name = 'DaveyAim', Function = function(cb) if not cb then launched = false end end, Tooltip = 'Cannon aim assist + brake on land'}) AimAssist = DaveyAim:CreateToggle({Name = 'Aim Assist', Default = true, Tooltip = 'Aims your cannon at the nearest enemy while aiming'}) Brake = DaveyAim:CreateToggle({Name = 'Brake', Default = true, Tooltip = 'Kills slide after cannon launch'}) print('[FIX] daveyaim registered') end) task.spawn(function() while true do if DaveyAim ~= nil and DaveyAim.Enabled then if AimAssist.Enabled then pcall(aimStep) end if Brake.Enabled then pcall(brakeStep) end end task.wait(0.25) end end)
-print('[FIX] daveyaim armed')-- UraniumFix_ShimPack P4 — AutoDavey v2 (JID guard). Wood-pickaxe swing on cannon place + on landing.
+print('[FIX] daveyaim armed')-- UraniumFix_ShimPack P4 v2 — AutoDavey (vape-identity guard).
 local g = getgenv()
-local JID = tostring(game.JobId)
-if g.UraniumAutoDaveyOn == JID then print('[FIX] autodavey already-on') return end
-g.UraniumAutoDaveyOn = JID
+if g.UraniumAutoDaveyVape == shared.vape and g.UraniumAutoDaveyOn then print('[FIX] autodavey already-on') return end
+g.UraniumAutoDaveyVape = shared.vape g.UraniumAutoDaveyOn = true
 g.vape = shared.vape
 local lplr = game:GetService('Players').LocalPlayer
 local cs = game:GetService('CollectionService')

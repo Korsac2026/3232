@@ -1010,4 +1010,132 @@ task.spawn(function() while true do if clutchOn() then local ch = lplr.Character
 task.spawn(function() while true do if clutchOn() then local ok, down = pcall(function() return uis:IsKeyDown(Enum.KeyCode.Space) end) local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') local hum = ch and ch:FindFirstChildOfClass('Humanoid') if ok and down and root and hum then local air = hum.FloorMaterial == Enum.Material.Air if not air or math.abs(root.AssemblyLinearVelocity.Y) < 8 then local below = roundPos(root.Position + Vector3.new(0, -3, 0)) if tryPlace(below) then task.wait(0.25) end end end end task.wait(0.12) end end)
 local suffCD = {}
 task.spawn(function() while true do if clutchOn() then local ch = lplr.Character local root = ch and ch:FindFirstChild('HumanoidRootPart') if root then for _, p in ipairs(game:GetService('Players'):GetPlayers()) do if p ~= lplr then local ec = p.Character local ehr = ec and ec:FindFirstChild('HumanoidRootPart') local ehum = ec and ec:FindFirstChildOfClass('Humanoid') if ehr and ehum and ehum.Health > 0 then if lplr.Team == nil or p.Team ~= lplr.Team then local d = (ehr.Position - root.Position).Magnitude if d < 8 and (os.clock() - (suffCD[p.Name] or 0)) > 5 then suffCD[p.Name] = os.clock() task.spawn(function() local f = roundPos(ehr.Position) tryPlace(f) task.wait(0.2) local h = roundPos(ehr.Position + Vector3.new(0, 3, 0)) tryPlace(h) print('[FIX] suffocate ' .. tostring(p.Name)) end) end end end end end end end task.wait(0.3) end end)
-print('[FIX] p7 armed')
+print('[FIX] p7 armed')-- P8 v2 — bridge/support-first + Limit honor + emergency pearl. Readable build.
+local g = getgenv()
+if g.UraniumP8Vape == shared.vape and g.UraniumP8On then
+print('[FIX] p8 already-on') return end
+g.UraniumP8Vape = shared.vape g.UraniumP8On = true
+local lplr = game:GetService('Players').LocalPlayer
+local rs = game:GetService('ReplicatedStorage')
+local Knit = (function()
+local ok, k = pcall(function()
+return require(rs['rbxts_include']['node_modules']['@easy-games'].knit.src).KnitClient end)
+return ok and k or nil end)()
+local KC = Knit and Knit.Controllers or {}
+local ProjMeta = (function()
+local ok, m = pcall(function() return require(rs.TS.projectile['projectile-meta']) end)
+return ok and m or nil end)()
+local httpService = game:GetService('HttpService')
+local function clutchOn()
+local v = shared.vape local c = v and v.Modules and v.Modules.Clutch
+return c ~= nil and c.Enabled end
+local function limitOk()
+local v = shared.vape local c = v and v.Modules and v.Modules.Clutch
+local o = c and c.Options and c.Options['Limit to items']
+if o and o.Enabled then
+local st = g.store local h = st and st.hand
+return h ~= nil and h.toolType == 'block' end
+return true end
+local function roundPos(p)
+return Vector3.new(math.round(p.X/3)*3, math.round(p.Y/3)*3, math.round(p.Z/3)*3) end
+local function invItems()
+local st = g.store
+return st and st.inventory and st.inventory.inventory and st.inventory.inventory.items or {} end
+local function findItem(t)
+for _, it in pairs(invItems()) do if it.itemType == t then return it end end
+return nil end
+local function woolType()
+for _, it in pairs(invItems()) do
+if type(it.itemType) == 'string' and it.itemType:find('wool') and (it.amount or 0) > 0 then
+return it.itemType end end
+return nil end
+local function cellState(bc, gp)
+local ok, st = pcall(bc.getStore, bc)
+if not ok or not st then return nil end
+local ok2, b = pcall(st.getBlockAt, st, gp)
+if not ok2 then return nil end
+return b ~= nil end
+local function hasSupport(bc, gp)
+local offs = {Vector3.new(3,0,0), Vector3.new(-3,0,0), Vector3.new(0,3,0)}
+offs[#offs+1] = Vector3.new(0,-3,0)
+offs[#offs+1] = Vector3.new(0,0,3)
+offs[#offs+1] = Vector3.new(0,0,-3)
+for _, o in ipairs(offs) do
+local s = cellState(bc, gp + o)
+if s == true then return true end
+if s == nil then return nil end end
+return false end
+local params = RaycastParams.new()
+params.FilterType = Enum.RaycastFilterType.Exclude
+params.RespectCanCollide = true
+local lastGround = nil
+task.spawn(function()
+while true do
+local ch = lplr.Character
+local root = ch and ch:FindFirstChild('HumanoidRootPart')
+local hum = ch and ch:FindFirstChildOfClass('Humanoid')
+if clutchOn() and root and hum then
+if hum.FloorMaterial ~= Enum.Material.Air then lastGround = root.CFrame end
+if root.AssemblyLinearVelocity.Y < -12 then
+params.FilterDescendantsInstances = {ch}
+local down = workspace:Raycast(root.Position, Vector3.new(0,-30,0), params)
+if not down and limitOk() then
+local md = hum.MoveDirection local dir = nil
+if md.Magnitude > 0.2 then dir = Vector3.new(md.X, 0, md.Z).Unit end
+if not dir then
+local bd, bn = 40, nil
+local dirs = {Vector3.new(1,0,0), Vector3.new(-1,0,0)}
+dirs[#dirs+1] = Vector3.new(0,0,1) dirs[#dirs+1] = Vector3.new(0,0,-1)
+for _, d in ipairs(dirs) do
+local hit = workspace:Raycast(root.Position + Vector3.new(0,1,0), d * 40, params)
+if hit and hit.Distance < bd then bd, bn = hit.Distance, d end end
+dir = bn or (root.CFrame.LookVector * Vector3.new(1,0,1)).Unit end
+local bw = g.bedwars local bc = bw and bw.BlockController
+if bc and bw.placeBlock then
+local cells = {}
+for k = 1, 5 do
+local tp = roundPos(root.Position + dir * (3*k) + Vector3.new(0,-1,0))
+local ok, gp = pcall(bc.getBlockPosition, bc, tp)
+if ok and (root.Position - tp).Magnitude < 14 then cells[#cells+1] = gp end end
+for idx = #cells, 1, -1 do
+local gp = cells[idx]
+if cellState(bc, gp) == false and hasSupport(bc, gp) == true then
+local wool = woolType()
+if wool then pcall(bw.placeBlock, gp * 3, wool) task.wait(0.12) end end end end end end end
+task.wait(0.25) end end)
+task.spawn(function()
+while true do
+local ch = lplr.Character
+local root = ch and ch:FindFirstChild('HumanoidRootPart')
+local hum = ch and ch:FindFirstChildOfClass('Humanoid')
+if clutchOn() and root and hum and limitOk() then
+if root.AssemblyLinearVelocity.Y < -60 then
+params.FilterDescendantsInstances = {ch}
+local down = workspace:Raycast(root.Position, Vector3.new(0,-150,0), params)
+if not down then
+local pearl = findItem('telepearl')
+local meta = ProjMeta and ProjMeta.telepearl
+local pc = KC.ProjectileController
+if pearl and pearl.tool and meta and pc then
+local spot = lastGround and lastGround.Position or (root.Position + Vector3.new(0,30,0))
+local oldHand = nil
+pcall(function() oldHand = g.store.hand end)
+pcall(function() hum:EquipTool(pearl.tool) end)
+task.wait(0.1)
+local toT = spot - root.Position
+local dir = nil
+if toT.Magnitude < 1 then dir = Vector3.new(0,1,0)
+else dir = toT.Unit * (tonumber(meta.launchVelocity) or 100) end
+pcall(function()
+pc:createLocalProjectile(meta, 'telepearl', 'telepearl', root.Position, nil, dir, {drawDurationSeconds = 1}) end)
+local bw = g.bedwars local cli = bw and bw.Client
+if cli then
+local okR, rem = pcall(function() return cli:Get('FireProjectile') end)
+if okR and rem and rem.instance then
+pcall(function()
+rem.instance:InvokeServer(pearl.tool, 'telepearl', 'telepearl', root.Position, root.Position, dir, httpService:GenerateGUID(true), {drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false)}, workspace:GetServerTimeNow() - 0.045) end) end end
+if oldHand and oldHand.tool then pcall(function() hum:EquipTool(oldHand.tool) end) end
+print('[FIX] emergency pearl')
+task.wait(5) end end end end
+task.wait(0.2) end end)
+print('[FIX] p8 armed')

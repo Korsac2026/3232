@@ -1165,4 +1165,11 @@ end)
 task.wait(1)
 local h = Store.hand
 print('[FIX] sync-hand ' .. (type(h) == 'table' and ('PASS type=' .. tostring(h.toolType) .. ' item=' .. tostring(h.itemType)) or 'EMPTY'))
-print('[FIX] sync-done')
+print('[FIX] sync-done')-- P10 — NPC registrar (no module). Registers training dummies/monsters into bundle entitylib.
+local g = getgenv()
+if g.UraniumNPCRegVape == shared.vape and g.UraniumNPCRegOn then print('[FIX] npcreg already-on') return end
+g.UraniumNPCRegVape = shared.vape g.UraniumNPCRegOn = true
+local Players = game:GetService('Players')
+local function regAll() local v = shared.vape local el = v and v.Libraries and v.Libraries.entity if not el or type(el.addEntity) ~= 'function' then return 0 end local n = 0 for _, d in ipairs(workspace:GetDescendants()) do if d:IsA('Model') and d:FindFirstChildOfClass('Humanoid') and Players:GetPlayerFromCharacter(d) == nil then local nm = d.Name:lower() if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') or nm:find('merchant') == nil and nm:find('shop') == nil then if nm:find('dummy') or nm:find('enemy') or nm:find('bot') or nm:find('monster') then if pcall(function() el.addEntity(d) end) then n = n + 1 end end end end end return n end
+task.spawn(function() task.wait(3) local n = regAll() print('[FIX] npcreg registered ' .. tostring(n)) end)
+print('[FIX] npcreg armed')
